@@ -64,3 +64,28 @@ test('complete scene signs cannot consume Reviewer, Builder or Rework crate sele
  assert.equal(ray.intersectObjects(scene.children,true)[0].object,overlay);
  assert.equal(pickEntity(scene,camera,new T.Vector2(projected.x,projected.y)),'demo-robot-4');
 });
+
+ test('camera contains all content and keeps signs at 16 CSS pixels across desktop widths',async()=>{
+ const {createIslandScene,islandCamera,fitIslandCamera,labelFontPixels}=await import('../src/scene');
+ const {scene}=createIslandScene(()=>demo,()=>new T.SpriteMaterial());
+ for(const width of [1024,900,608]){
+  const height=700,camera=islandCamera();fitIslandCamera(camera,scene,width,height);scene.updateMatrixWorld(true);
+  scene.traverse(object=>{
+   if(object.userData.background)return;
+   if(object instanceof T.Sprite){
+    const p=object.position.clone().project(camera);
+    const halfWidth=object.scale.x/(camera.right-camera.left),halfHeight=object.scale.y/(camera.top-camera.bottom);
+    assert.ok(Math.abs(p.x)+halfWidth<=1.00001,`${width}: ${object.name} horizontal bounds`);
+    assert.ok(Math.abs(p.y)+halfHeight<=1.00001,`${width}: ${object.name} vertical bounds`);
+    const renderedHeight=object.scale.y/(camera.top-camera.bottom)*height;
+    assert.ok(Math.abs(renderedHeight*32/56-labelFontPixels)<.00001,`${object.name} font must not shrink`);
+    assert.equal(labelFontPixels,16);
+   }else if(object instanceof T.Mesh){
+    const box=new T.Box3().setFromObject(object);
+    for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+     const p=new T.Vector3(x,y,z).project(camera);assert.ok(Math.abs(p.x)<=1.00001&&Math.abs(p.y)<=1.00001,`${width}: geometry cropped`);
+    }
+   }
+  });
+ }
+});

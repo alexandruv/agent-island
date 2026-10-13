@@ -40,7 +40,7 @@ function render(){
 render();
 root.querySelector('#fixture')!.addEventListener('change',e=>{snapshot=(e.target as HTMLSelectElement).value==='offline'?offlineDemo():demo;render();});
 const view=bindViewControl(root,root.querySelector<HTMLButtonElement>('#view')!);
-if(matchMedia('(min-width: 761px)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+if(matchMedia('(min-width: 1301px)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches){
  import('./scene').then(({drawIsland})=>{view.setAvailable(true);drawIsland(root.querySelector('#scene')!,()=>snapshot,fallback);}).catch(()=>fallback());
 }else fallback();
 function fallback(){view.setAvailable(false);root.querySelector('#scene')!.textContent='Island rendering unavailable. All stations and details are available in the lanes.';}
