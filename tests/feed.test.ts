@@ -181,3 +181,23 @@ test('real subprocess fixtures enforce output and timeout bounds without leaking
   const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'builder',status:'running'}],async()=>project([{id:'builder',state:'closed',station:4}]),()=>now);
   assert.equal((await c.collect()).agents[0].station,'archive');
  });
+
+test('Mini Ops failures survive FeedStore freshness, HTTP and WebSocket snapshots',async()=>{
+ const {SourceError}=await import('../server/boundary');
+ for(const failure of ['unavailable','error','invalid'] as const){
+  const c=new Collector(config,async(binary,args)=>binary==='gh'?issues:args[0]==='permit'?[]:agents,
+   async()=>{if(failure==='invalid')return {raw:hostile};throw new SourceError(failure);},()=>now);
+  const collected=await c.collect();assert.equal(collected.heartbeatAt,null);assert.equal(collected.sources.miniOps,failure);
+  let clock=now;
+  const store=new FeedStore({mode:'sanitized',snapshotFile:'/synthetic/feed.json',origins:['http://allowed.example'],revision:'unknown'},async()=>collected,()=>clock);
+  await store.refresh();
+  for(const age of [0,31000,121000]){clock=now+age;assert.equal(store.snapshot().sources.miniOps,failure);assert.equal(store.snapshot().status.online,false);assert.equal(store.snapshot().status.stale,true);}
+  const server=createServer((req,res)=>feed.middleware(req,res,()=>{res.statusCode=404;res.end();}));const feed=attachFeed(server,store);
+  server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+  try{
+   const served=await (await fetch(base+'/api/snapshot')).json();assert.equal(served.sources.miniOps,failure);assert.equal(JSON.stringify(served).includes(hostile),false);
+   const ws=new WebSocket(base.replace('http:','ws:')+'/api/feed',{origin:'http://allowed.example'});
+   const [body]=await once(ws,'message');assert.equal(JSON.parse(body.toString()).snapshot.sources.miniOps,failure);ws.close();await once(ws,'close');
+  }finally{feed.close();await new Promise<void>(r=>server.close(()=>r()));}
+ }
+});

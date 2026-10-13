@@ -36,8 +36,11 @@ function freshness(feed:Feed,now:number,online=feed.status.online,stale=feed.sta
  const heartbeatAge=feed.heartbeatAt?now-Date.parse(feed.heartbeatAt):Infinity;
  if(heartbeatAge < -5000) throw Error('Future heartbeat');
  feed.status={source:'live',online:online&&age<=120000&&heartbeatAge<=120000,stale:stale||age>30000||heartbeatAge>30000||Object.values(feed.sources).some(x=>x!=='ok')};
- if(age>120000||heartbeatAge>120000) feed.sources.miniOps='offline';
- else if(age>30000||heartbeatAge>30000) feed.sources.miniOps='stale';
+ // Freshness refines heartbeat health; it must not erase a source failure.
+ if(['ok','stale','offline'].includes(feed.sources.miniOps)){
+  if(age>120000||heartbeatAge>120000) feed.sources.miniOps='offline';
+  else if(age>30000||heartbeatAge>30000) feed.sources.miniOps='stale';
+ }
  return feed;
 }
 export class FeedStore {

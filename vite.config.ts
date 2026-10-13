@@ -1,11 +1,35 @@
-import {posix,resolve} from 'node:path';
+import {realpath} from 'node:fs/promises';
+import {posix,resolve,relative,isAbsolute,dirname,basename} from 'node:path';
 import {defineConfig, type Plugin} from 'vite';
 import {boundedFile} from './server/boundary';
 import {attachFeed, FeedStore,healthJSON,validateFeedConfig,type FeedConfig} from './server/feed';
+// Resolve existing ancestors too: a missing export inside a symlinked directory
+// must not become publicly readable when the collector creates it later.
+async function canonical(path:string):Promise<string>{
+ try{return await realpath(path);}catch(e){
+  if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;
+  const parent=dirname(path);if(parent===path)throw e;
+  return resolve(await canonical(parent),basename(path));
+ }
+}
+export async function rejectServedInputs(inputs:string[],directories:string[]){
+ const roots=await Promise.all(directories.map(d=>canonical(resolve(d))));
+ for(const input of inputs){
+  const paths=[resolve(input),await canonical(resolve(input))];
+  for(const root of [...directories.map(d=>resolve(d)),...roots])for(const path of paths){
+   const rel=relative(root,path);
+   if(rel===''||(!isAbsolute(rel)&&rel!=='..'&&!rel.startsWith('../')))throw Error('Feed input must be outside served directories');
+  }
+ }
+}
 export default defineConfig(async()=>{
  const config:FeedConfig=process.env.AGENT_ISLAND_FEED_CONFIG?validateFeedConfig(await boundedFile(process.env.AGENT_ISLAND_FEED_CONFIG) as FeedConfig):{mode:'unavailable',origins:['http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:4173','http://localhost:4173'],revision:process.env.AGENT_ISLAND_REVISION??'unknown'};
  validateFeedConfig(config);
  const plugin:Plugin={name:'read-only-feed',
+  async configResolved(vite){
+   await rejectServedInputs([process.env.AGENT_ISLAND_FEED_CONFIG,config.snapshotFile].filter((p):p is string=>!!p),
+    [vite.root,resolve(vite.root,vite.build.outDir),...(vite.publicDir?[vite.publicDir]:[]),...vite.server.fs.allow]);
+  },
   configureServer(server){if(server.httpServer){const hmr=server.config.server.hmr;
    const hmrPath=typeof hmr==='object'&&hmr.path?posix.join(server.config.base,hmr.path):server.config.base;
    const feed=attachFeed(server.httpServer,new FeedStore(config),10000,req=>{

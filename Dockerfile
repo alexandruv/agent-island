@@ -14,8 +14,8 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/src ./src
 COPY --from=build /app/server/boundary.ts /app/server/feed.ts ./server/
 COPY --from=build /app/vite.config.ts ./vite.config.ts
-COPY tests/fixtures/demo-feed.json /app/demo-feed.json
-ENV AGENT_ISLAND_FEED_CONFIG=/app/demo-feed.json
+COPY tests/fixtures/demo-feed.json /feed-config/demo-feed.json
+ENV AGENT_ISLAND_FEED_CONFIG=/feed-config/demo-feed.json
 USER node
 EXPOSE 4173
 CMD ["node", "node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "4173", "--strictPort", "--configLoader", "runner"]
