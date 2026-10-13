@@ -162,7 +162,10 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot,onUnavailable:()
   (host as HTMLElement).style.height=`${height}px`;renderer.setSize(width,height);
   signs.forEach((sign,i)=>{const p=sign.position.clone().project(camera);labels[i].style.width=`${sign.userData.labelWidth}px`;labels[i].style.left=`${(p.x+1)*width/2-sign.userData.labelWidth/2}px`;labels[i].style.top=`${(1-p.y)*height/2-14}px`;});
   scene.children.forEach(o=>{if(o instanceof T.Sprite)o.visible=false;});paint();
- };new ResizeObserver(resize).observe(host);resize();
+ };
+ // The host can grow to fit fixed-size signs. Observe its viewport container,
+ // whose height tracks the window independently of that explicit host height.
+ new ResizeObserver(resize).observe(host.parentElement!);resize();
  const animate=()=>{if(lost)return;renderer.setAnimationLoop(motion.matches?null:paint);paint();};
  motion.addEventListener('change',animate);
  document.querySelector('#fixture')?.addEventListener('change',()=>paint());

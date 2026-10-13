@@ -61,3 +61,17 @@ test('station HTML rectangles remain clear through constrained-height resizes',a
   await expect(page.locator('.lanes')).not.toBeVisible();
  }
 });
+
+test('height-only viewport growth and shrinkage refit canvas and signs',async({page})=>{
+ await page.setViewportSize({width:1280,height:300});await page.goto('/');
+ const canvas=page.locator('#scene canvas');await expect(canvas).toBeVisible();
+ for(const height of [300,800,300,900,260,800]){
+  await page.setViewportSize({width:1280,height});
+  await expect.poll(async()=>{
+   const box=await canvas.boundingBox();
+   return box?{width:box.width,height:box.height}:null;
+  }).toEqual({width:1280,height:height-72});
+  await expect(async()=>{await expectSignRectangles(page,1280,height);}).toPass();
+  await expect(page.locator('.lanes')).not.toBeVisible();
+ }
+});
