@@ -89,3 +89,32 @@ test('complete scene signs cannot consume Reviewer, Builder or Rework crate sele
   });
  }
 });
+
+
+test('every station sign stays clear of every robot and log label at fitted desktop widths',async()=>{
+ const {createIslandScene,islandCamera,fitIslandCamera}=await import('../src/scene');
+ const {stations}=await import('../src/contract');
+ const {scene}=createIslandScene(()=>demo,()=>new T.SpriteMaterial());
+ const sprites=scene.children.filter((object):object is T.Sprite=>object instanceof T.Sprite);
+ const stationNames=new Set([...stations.map(([number,title])=>`${number} ${title}`),'◇ Archive','🔒 Production locked','Watchers ◉','Setup & admin · ▤ Operator']);
+ const signs=sprites.filter(sprite=>stationNames.has(sprite.name));
+ const labels=sprites.filter(sprite=>demo.agents.some(agent=>sprite.name.includes(agent.name)||sprite.name===agent.latestLog)||sprite.name==='! Permit needed');
+ assert.equal(signs.length,11);
+ assert.equal(labels.length,9);
+ // Sweep the supported scene range, then repeat the acceptance widths to check resize stability.
+ for(const width of [...Array.from({length:417},(_,index)=>608+index),1024,900,608]){
+  const height=700,camera=islandCamera();fitIslandCamera(camera,scene,width,height);
+  function rectangle(sprite:T.Sprite){
+   const center=sprite.getWorldPosition(new T.Vector3()).project(camera);
+   const halfWidth=sprite.scale.x/(camera.right-camera.left)*width/2;
+   const halfHeight=sprite.scale.y/(camera.top-camera.bottom)*height/2;
+   const x=(center.x+1)*width/2,y=(1-center.y)*height/2;
+   return {left:x-halfWidth,right:x+halfWidth,top:y-halfHeight,bottom:y+halfHeight};
+  }
+  for(const sign of signs)for(const label of labels){
+   const a=rectangle(sign),b=rectangle(label);
+   const clearance=Math.max(b.left-a.right,a.left-b.right,b.top-a.bottom,a.top-b.bottom);
+   assert.ok(clearance>=2,`${width}px: ${sign.name} overlaps or lacks clearance from ${label.name} (${clearance.toFixed(2)}px)`);
+  }
+ }
+});

@@ -31,3 +31,14 @@ No preview was deployed, and production is untouched.
 - PASS: `npm run test:ui -- --list` discovers four tests. Desktop picking now uses the fitted application camera at a 1440px viewport. Added browser assertions require all nine lane sections, no horizontal overflow, Intake and Archive details, and locked Production text at 761/1024/1280px.
 - NOT RUN (documented host BLOCKED): browser assertions and screenshots remain pending because of the previously recorded macOS startup denial. No denied launch was retried or security controls changed. Operator desktop sign readability/overlap and phone checks remain required before deployment.
 - Usage: viewports through 1300px use lanes; larger viewports can render the fitted island or switch to lanes. Resize keeps content within the camera and labels at a fixed CSS font size.
+
+
+## Issue #6 Intake clearance
+
+2026-10-13, assigned `agent/issue-6` worktree only, fast-forwarded to the required PR #5 head `243db7eef3a4478e742288415c6d03965dc37b51` before changes.
+
+- PASS: fresh `npm ci --cache /private/tmp/agent-island-issue-6-npm-cache`, `npm run build`, and `npm test`: 14 tests passed, zero failures or skips. The temporary cache stays within writable paths; npm install-script controls were left intact. Static root entry and emitted asset/import checks pass. The existing lazy scene chunk warning is approximately 508 kB.
+- PASS: the new regression initially failed on Intake/Dockhand projected rectangle overlap at 608px. It now checks all eleven station/support signs against all nine robot/log/permit labels at every integer scene width from 608 through 1024px (700px height), then repeats 1024/900/608px to exercise resizing. Every pair has at least 2 CSS pixels of screen-space clearance. Labels retain their fixed font and original world anchors; only colliding labels receive vertical offsets after camera fitting. Existing geometry, framing, font-size and picking tests still pass.
+- PASS: `npm run test:ui -- --list` discovers all four opt-in browser tests.
+- BLOCKED / NOT RUN: browser assertions and screenshots remain pending under the documented macOS launch denial (`bootstrap_check_in ... Permission denied (1100)`), with evidence in [browser-host-block.log](browser-host-block.log). No denied launch was retried or security control changed. CPU projection tests and browser discovery do not establish rendered visual success. Operator browser/phone validation remains pending before deployment.
+- Usage: `npm ci && npm run build && npm test`, then `npm run dev` or local `npm run preview`. In the desktop island view, robot/log labels automatically clear station signs as the scene resizes; lane fallback and the permanently locked Production bridge are preserved.

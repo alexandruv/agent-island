@@ -7,6 +7,7 @@ export function islandCamera(){
 // Textures use a fixed font; camera fitting scales sprites to CSS pixels, never shrinks text.
 export const labelFontPixels=16;
 export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:number,height:number){
+ scene.traverse(object=>{if(object.userData.labelAnchor)object.position.copy(object.userData.labelAnchor);});
  scene.updateMatrixWorld(true);camera.updateMatrixWorld();
  const bounds=new T.Box3();let horizontalPadding=16;
  scene.traverse(object=>{
@@ -24,6 +25,24 @@ export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:
  camera.left=center.x-width*unitsPerPixel/2;camera.right=center.x+width*unitsPerPixel/2;
  camera.bottom=center.y-height*unitsPerPixel/2;camera.top=center.y+height*unitsPerPixel/2;camera.updateProjectionMatrix();
  scene.traverse(object=>{if(object instanceof T.Sprite)object.scale.set((object.userData.labelWidth??170)*unitsPerPixel,28*unitsPerPixel,1);});
+ // Keep the world anchors, but clear fixed station signs in CSS pixel space.
+ // Recompute from the anchors on every resize so offsets never accumulate.
+ const sprites=scene.children.filter((object):object is T.Sprite=>object instanceof T.Sprite);
+ const rectangle=(sprite:T.Sprite)=>{
+  const p=sprite.position.clone().project(camera);
+  return {x:(p.x+1)*width/2,y:(1-p.y)*height/2,halfWidth:sprite.userData.labelWidth/2};
+ };
+ const occupied=sprites.filter(sprite=>sprite.userData.labelRole==='station').map(rectangle);
+ const cameraUp=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+ for(const sprite of sprites.filter(sprite=>sprite.userData.labelRole==='robot')){
+  const rect=rectangle(sprite),gap=31;
+  const candidates=[rect.y,...occupied.flatMap(other=>[other.y-gap,other.y+gap])];
+  const y=candidates.filter(y=>y>=14&&y<=height-14&&occupied.every(other=>
+   Math.abs(rect.x-other.x)>=rect.halfWidth+other.halfWidth+2||Math.abs(y-other.y)>=gap
+  )).sort((a,b)=>Math.abs(a-rect.y)-Math.abs(b-rect.y))[0];
+  if(y!==undefined){sprite.position.addScaledVector(cameraUp,(rect.y-y)*unitsPerPixel);occupied.push({...rect,y});}
+ }
+ scene.updateMatrixWorld(true);
 }
 export function pickEntity(scene:T.Scene,camera:T.Camera,point:T.Vector2):string|undefined{
  scene.updateMatrixWorld(true);
@@ -45,11 +64,11 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  const points=stationPoints;
  const road=new T.CatmullRomCurve3([...points,points[0]],true);mesh(new T.TubeGeometry(road,100,.35,6,true),0x9b8a70,0,0,0);
  for(let n=0;n<65;n++){const p=road.getPoint(n/65);mesh(new T.SphereGeometry(.07,6,4),0xffd990,p.x,p.y+.32,p.z);}
- function sign(text:string,x:number,y:number,z:number){const sprite=new T.Sprite(labelMaterial(text));sprite.name=text;sprite.userData.labelWidth=sprite.material.map?.image?.width ? sprite.material.map.image.width/2 : text.length*9+24;sprite.position.set(x,y,z);sprite.scale.set(3.4,.65,1);scene.add(sprite);}
+ function sign(text:string,x:number,y:number,z:number,role?:'station'|'robot'){const sprite=new T.Sprite(labelMaterial(text));sprite.name=text;sprite.userData.labelWidth=sprite.material.map?.image?.width ? sprite.material.map.image.width/2 : text.length*9+24;sprite.position.set(x,y,z);sprite.userData.labelRole=role;sprite.userData.labelAnchor=sprite.position.clone();sprite.scale.set(3.4,.65,1);scene.add(sprite);}
  const robots:T.Group[]=[];
  stations.forEach(([n,title],i)=>{const p=points[i];mesh(new T.BoxGeometry(1.5,1.3,1.3),i===6?0x88715a:0x657083,p.x,.8,p.z-.8);const roof=mesh(new T.ConeGeometry(1.2,.8,4),0x24394c,p.x,1.85,p.z-.8);roof.rotation.y=Math.PI/4;
  if(i===3)mesh(new T.BoxGeometry(.8,1.7,.8),0x617891,p.x,2,p.z-.8);
- mesh(new T.BoxGeometry(.5,.5,.04),0xffce78,p.x,1,p.z-.13);sign(`${n} ${title}`,p.x,i===4?4.8:3.3,p.z);
+ mesh(new T.BoxGeometry(.5,.5,.04),0xffce78,p.x,1,p.z-.13);sign(`${n} ${title}`,p.x,i===4?4.8:3.3,p.z,'station');
  const robot=new T.Group();robot.position.set(p.x+.8,.6,p.z+.5);scene.add(robot);robots.push(robot);
  const part=(g:T.BufferGeometry,c:number,x:number,y:number,z:number)=>{const m=new T.Mesh(g,material(c));m.position.set(x,y,z);robot.add(m);};
  part(new T.BoxGeometry(.45,.6,.35),0xa7c4d3,0,.1,0);part(new T.SphereGeometry(.37,8,6),0xb2ccda,0,.7,0);part(new T.BoxGeometry(.42,.18,.1),0x12253a,0,.72,.3);for(const x of [-.13,.13])part(new T.SphereGeometry(.045,6,4),0x79eaff,x,.72,.36);
@@ -57,9 +76,9 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  const a=snapshot().agents.find(a=>a.station===n)!;robot.userData.entityId=a.id;
  mesh(new T.BoxGeometry(.9,.07,.08),0x26364e,p.x+.8,1.7,p.z+.5);
  if(contextText(a.contextPercent)!=='Context unknown'){const ratio=a.contextPercent!/100;mesh(new T.BoxGeometry(.9*ratio,.07,.09),0x80cfa6,p.x+.8-.45*(1-ratio),1.7,p.z+.5);}
- sign(`${symbols[a.state]} ${a.name} · ${contextText(a.contextPercent)}`,p.x,2.65,p.z+.6);
- if(a.latestLog)sign(a.latestLog,p.x,4,p.z+.6);
- if(a.state==='waiting-permit')sign('! Permit needed',p.x+.8,1.9,p.z+.5);
+ sign(`${symbols[a.state]} ${a.name} · ${contextText(a.contextPercent)}`,p.x,2.65,p.z+.6,'robot');
+ if(a.latestLog)sign(a.latestLog,p.x,4,p.z+.6,'robot');
+ if(a.state==='waiting-permit')sign('! Permit needed',p.x+.8,1.9,p.z+.5,'robot');
  if(a.state==='idle')mesh(new T.BoxGeometry(1,.15,.4),0x8c6c49,p.x+.8,.2,p.z+.5);
  if(['failed','stuck','needs-human'].includes(a.state))robot.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshStandardMaterial).color.setHex(0xc94c61);});
  if(a.state==='needs-human')for(let k=0;k<3;k++)mesh(new T.IcosahedronGeometry(.2+k*.1,0),0xb84b60,p.x+.8,1.8+k*.4,p.z+.5);
@@ -74,11 +93,11 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  // Visible route cues are informational; no production action exists.
  const loop=new T.CatmullRomCurve3([points[3],new T.Vector3(0,.4,-.7),points[2]]);mesh(new T.TubeGeometry(loop,20,.055,4),0xe8b65d,0,0,0);sign('↺ Review → Build',0,1,-1);
  const changes=new T.CatmullRomCurve3([points[6],new T.Vector3(-4,.4,6),points[0]]);for(let n=0;n<18;n++){const p=changes.getPoint(n/18);mesh(new T.SphereGeometry(.055,6,4),0xc0d6ec,p.x,p.y,p.z);}sign('Changes → Intake',-4,1.5,5.8);
- mesh(new T.BoxGeometry(4,.15,1),0x6d6962,9,0,-2);mesh(new T.BoxGeometry(.15,1.8,1.5),0xe8ab52,7.5,.8,-2);sign('🔒 Production locked',11,3,-3);mesh(new T.CylinderGeometry(3,2,2,7),0x34435d,13,-1,-4);
+ mesh(new T.BoxGeometry(4,.15,1),0x6d6962,9,0,-2);mesh(new T.BoxGeometry(.15,1.8,1.5),0xe8ab52,7.5,.8,-2);sign('🔒 Production locked',11,3,-3,'station');mesh(new T.CylinderGeometry(3,2,2,7),0x34435d,13,-1,-4);
  for(let n=0;n<5;n++)mesh(new T.BoxGeometry(.6,1+n*.4,.7),0x4c607b,11+n*.7,1,-4);
- mesh(new T.CylinderGeometry(.4,.65,3,8),0xabbdc5,6,1,6);const beacon=mesh(new T.SphereGeometry(.35,8,6),0xffd784,6,2.8,6);sign('Watchers ◉',6,4,6);
- mesh(new T.BoxGeometry(1,1,1),0x6c746d,-5,.6,6);sign('Setup & admin · ▤ Operator',-5,2.5,7);
- mesh(new T.IcosahedronGeometry(1.5,0),0x566073,-9,-1,4);sign('◇ Archive',-9,1,4);
+ mesh(new T.CylinderGeometry(.4,.65,3,8),0xabbdc5,6,1,6);const beacon=mesh(new T.SphereGeometry(.35,8,6),0xffd784,6,2.8,6);sign('Watchers ◉',6,4,6,'station');
+ mesh(new T.BoxGeometry(1,1,1),0x6c746d,-5,.6,6);sign('Setup & admin · ▤ Operator',-5,2.5,7,'station');
+ mesh(new T.IcosahedronGeometry(1.5,0),0x566073,-9,-1,4);sign('◇ Archive',-9,1,4,'station');
  return {scene,robots,beacon};
 }
 export function drawIsland(host: Element, snapshot:()=>Snapshot,onUnavailable:()=>void){
