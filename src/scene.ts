@@ -6,7 +6,7 @@ export function islandCamera(){
 }
 // Textures use a fixed font; camera fitting scales sprites to CSS pixels, never shrinks text.
 export const labelFontPixels=16;
-export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:number,height:number){
+export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:number,height:number):number{
  scene.traverse(object=>{if(object.userData.labelAnchor)object.position.copy(object.userData.labelAnchor);});
  scene.updateMatrixWorld(true);camera.updateMatrixWorld();
  const bounds=new T.Box3();const horizontalPadding=12;
@@ -32,22 +32,48 @@ export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:
   const p=sprite.position.clone().project(camera);
   return {x:(p.x+1)*width/2,y:(1-p.y)*height/2,halfWidth:sprite.userData.labelWidth/2};
  };
+ const stationSigns=sprites.filter(s=>s.userData.labelRole==='station');
  const occupied:ReturnType<typeof rectangle>[]=[];
+ const placements=new Map<T.Sprite,ReturnType<typeof rectangle>>();
  const cameraUp=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
  const cameraRight=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
- // Place every sign and bubble, not only robot labels, with deterministic screen clearance.
+ // Station signs are always visible; robot information stays in the header.
  for(const sprite of sprites){sprite.visible=sprite.userData.labelRole==='station';}
- for(const sprite of sprites.filter(s=>s.userData.labelRole==='station')){
+ for(const sprite of stationSigns){
   const rect=rectangle(sprite),gap=32;
   const x=Math.max(rect.halfWidth+8,Math.min(width-rect.halfWidth-8,rect.x));
   const candidates=[Math.max(20,Math.min(height-20,rect.y)),...occupied.flatMap(other=>[other.y-gap,other.y+gap])];
   const y=candidates.filter(y=>y>=20&&y<=height-20&&occupied.every(other=>
    Math.abs(x-other.x)>=rect.halfWidth+other.halfWidth+4||Math.abs(y-other.y)>=gap
   )).sort((a,b)=>Math.abs(a-rect.y)-Math.abs(b-rect.y))[0];
-  sprite.visible=y!==undefined;
-  if(y!==undefined){sprite.position.addScaledVector(cameraUp,(rect.y-y)*unitsPerPixel).addScaledVector(cameraRight,(x-rect.x)*unitsPerPixel);occupied.push({...rect,x,y});}
+  if(y!==undefined){const placed={...rect,x,y};placements.set(sprite,placed);occupied.push(placed);}
+ }
+ // A greedy anchor layout can exhaust nearby rows even when the canvas has room.
+ // Repack ALL signs into shelves rather than leave any at its original anchor.
+ if(placements.size!==stationSigns.length){
+  placements.clear();
+  const rows:{width:number,signs:T.Sprite[]}[]=[];
+  for(const sign of [...stationSigns].sort((a,b)=>b.userData.labelWidth-a.userData.labelWidth)){
+   const signWidth=sign.userData.labelWidth;
+   const row=rows.find(row=>row.width+signWidth+4<=width-16)??{width:0,signs:[]};
+   if(!rows.includes(row))rows.push(row);
+   row.signs.push(sign);row.width+=signWidth+4;
+  }
+  const requiredHeight=rows.length*32+16;
+  // Below the physical space required by fixed-size text, the scene scrolls.
+  // Return the fitted height so the browser can grow the scrollable canvas.
+  if(height<requiredHeight)return fitIslandCamera(camera,scene,width,requiredHeight);
+  rows.forEach((row,index)=>{
+   let left=(width-(row.width-4))/2;
+   for(const sign of row.signs){const rect=rectangle(sign);placements.set(sign,{...rect,x:left+rect.halfWidth,y:(height-rows.length*32)/2+index*32+16});left+=sign.userData.labelWidth+4;}
+  });
+ }
+ for(const sign of stationSigns){
+  const anchor=rectangle(sign),placed=placements.get(sign)!;
+  sign.position.addScaledVector(cameraUp,(anchor.y-placed.y)*unitsPerPixel).addScaledVector(cameraRight,(placed.x-anchor.x)*unitsPerPixel);
  }
  scene.updateMatrixWorld(true);
+ return height;
 }
 export function pickEntity(scene:T.Scene,camera:T.Camera,point:T.Vector2):string|undefined{
  scene.updateMatrixWorld(true);
@@ -130,7 +156,10 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot,onUnavailable:()
  const motion=matchMedia('(prefers-reduced-motion: reduce)');
  let lost=false;
  const paint=(time=0)=>{const feed=snapshot().status; (beacon.material as T.MeshStandardMaterial).color.setHex(!feed.online?0x34435d:feed.stale?0xc18e45:0xffd784);beacon.scale.setScalar(!motion.matches&&feed.online&&!feed.stale?1+Math.sin(time/700)*.12:1);robots.forEach((r,i)=>{const a=snapshot().agents.find(a=>a.station===i+1);r.position.y=.6+(!motion.matches&&a?.state==='working'&&feed.online?Math.sin(time/240)*.08:0);});renderer.render(scene,camera);};
- const resize=()=>{const {width,height}=host.getBoundingClientRect();if(lost||width<=0||height<=0)return;renderer.setSize(width,height);fitIslandCamera(camera,scene,width,height);
+ const resize=()=>{const width=host.getBoundingClientRect().width,availableHeight=host.parentElement!.clientHeight;if(lost||width<=0||availableHeight<=0)return;
+  let height=availableHeight;
+  height=fitIslandCamera(camera,scene,width,height);
+  (host as HTMLElement).style.height=`${height}px`;renderer.setSize(width,height);
   signs.forEach((sign,i)=>{const p=sign.position.clone().project(camera);labels[i].style.width=`${sign.userData.labelWidth}px`;labels[i].style.left=`${(p.x+1)*width/2-sign.userData.labelWidth/2}px`;labels[i].style.top=`${(1-p.y)*height/2-14}px`;});
   scene.children.forEach(o=>{if(o instanceof T.Sprite)o.visible=false;});paint();
  };new ResizeObserver(resize).observe(host);resize();

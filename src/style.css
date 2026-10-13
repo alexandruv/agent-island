@@ -8,7 +8,7 @@ button,select{font:inherit;color:inherit;background:#18273d;border:1px solid #49
 button:hover{background:#253c56}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #ffd784;outline-offset:4px}
 #status{position:absolute;bottom:8px;left:12px;z-index:2;margin:0;padding:6px 10px;max-width:calc(100% - 24px);pointer-events:none;font-size:13px;border:1px solid #30445f;border-radius:8px;background:#111d30;overflow-wrap:anywhere}
 main{height:calc(100dvh - 72px)}
-.world{position:relative;width:100%;height:100%;overflow:hidden;background:radial-gradient(ellipse at center,#233c56,#101b32 55%,#0a1124)}
+.world{position:relative;width:100%;height:100%;overflow:auto;background:radial-gradient(ellipse at center,#233c56,#101b32 55%,#0a1124)}
 #scene{height:100%;width:100%}canvas{display:block;width:100%;height:100%}
 .station-label{position:absolute;height:28px;padding:0 10px;border:1px solid #97b4d3;border-radius:4px;background:#101e32;color:#f1f5ff;font:bold 16px/26px sans-serif;white-space:nowrap;pointer-events:none}
 .entity-hint{position:absolute;top:0;left:0;height:72px;max-width:calc(100% - 24px);overflow:auto;background:#101e32;padding:8px;pointer-events:none;z-index:2;font-size:12px}.entity-hint:empty{display:none}

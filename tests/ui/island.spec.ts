@@ -1,8 +1,17 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,type Page} from '@playwright/test';
 import * as T from 'three';
 import {createIssueCrates} from '../../src/scene-layout';
 import {demo} from '../../src/fixture';
 import {createIslandScene,islandCamera,fitIslandCamera} from '../../src/scene';
+async function expectSignRectangles(page:Page,width:number,height:number){
+ await expect(page.locator('.station-label')).toHaveCount(11);
+ await expect.poll(async()=>page.locator('.station-label').evaluateAll(nodes=>nodes.every(n=>!!(n as HTMLElement).style.left))).toBe(true);
+ const signs=await page.locator('.station-label').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};}));
+  for(const [i,a] of signs.entries()){
+   expect(a.left).toBeGreaterThanOrEqual(0);expect(a.right).toBeLessThanOrEqual(width);expect(a.top).toBeGreaterThanOrEqual(72);expect(a.bottom).toBeLessThanOrEqual(height);
+   for(const b of signs.slice(i+1))expect(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top).toBe(true);
+  }
+}
 // Only for the documented managed macOS bootstrap denial; ordinary runs execute all assertions.
 test.skip(process.env.ISLAND_BROWSER_HOST_BLOCKED==='1','Managed host denies Chromium bootstrap; operator validation required');
 for(const [width,height] of [[1280,800],[1440,900],[390,844]]){
@@ -15,11 +24,7 @@ for(const [width,height] of [[1280,800],[1440,900],[390,844]]){
   await expect(page.getByText('Island rendering unavailable',{exact:false})).toHaveCount(0);
   await expect(page.locator('.lanes')).not.toBeVisible();
   await expect(page.locator('.station-label')).toHaveCount(11);
-  const signs=await page.locator('.station-label').evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};}));
-  for(const [i,a] of signs.entries()){
-   expect(a.left).toBeGreaterThanOrEqual(0);expect(a.right).toBeLessThanOrEqual(width);expect(a.top).toBeGreaterThanOrEqual(72);expect(a.bottom).toBeLessThanOrEqual(height);
-   for(const b of signs.slice(i+1))expect(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top).toBe(true);
-  }
+  await expectSignRectangles(page,width,height);
   const path=`test-results/island-${width}.png`;await page.screenshot({path});await testInfo.attach(`island-${width}`,{path,contentType:'image/png'});
   await page.getByRole('button',{name:'Lane view',exact:true}).click();await expect(page.locator('.lanes')).toBeVisible();await expect(canvas).toBeVisible();
   await page.locator('#demo-robot-7').focus();await page.keyboard.press('Enter');await expect(page.getByRole('dialog')).toContainText('Context unknown');await page.keyboard.press('Escape');await expect(page.locator('#demo-robot-7')).toBeFocused();
@@ -44,4 +49,15 @@ test('reduced motion retains a static island and offline details',async({page})=
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await expect(page.locator('#scene canvas')).toBeVisible();await expect(page.locator('.lanes')).not.toBeVisible();
  const first=await page.locator('#scene canvas').screenshot();await page.waitForTimeout(150);expect(await page.locator('#scene canvas').screenshot()).toEqual(first);
  await page.selectOption('#fixture','offline');await expect(page.locator('#status')).toContainText('cached data stale');await page.locator('#view').click();await page.locator('#demo-robot-1').click();await expect(page.getByRole('dialog')).toContainText('Latest sanitized log: Demo fixture');await expect(page.getByRole('link')).toHaveCount(0);
+});
+
+test('station HTML rectangles remain clear through constrained-height resizes',async({page})=>{
+ await page.goto('/');await expect(page.locator('#scene canvas')).toBeVisible();
+ for(const [width,height] of [[1280,300],[390,360],[600,320],[1440,260],[390,844],[1280,800],[1280,300]]){
+  await page.setViewportSize({width,height});
+  await expect.poll(async()=> (await page.locator('#scene canvas').boundingBox())?.width).toBe(width);
+  // ResizeObserver commits positions asynchronously; check rendered rectangles after layout.
+  await expect(async()=>{await expectSignRectangles(page,width,height);}).toPass();
+  await expect(page.locator('.lanes')).not.toBeVisible();
+ }
 });

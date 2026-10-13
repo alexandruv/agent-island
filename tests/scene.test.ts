@@ -133,3 +133,22 @@ test('main island fills at least sixty percent of canvas width with support land
   assert.ok((Math.max(...xs)-Math.min(...xs))/2>=.6,`${width}: island too small`);
  }
 });
+
+test('constrained-height packing places every sign and resets anchors on resize',async()=>{
+ const {createIslandScene,islandCamera,fitIslandCamera}=await import('../src/scene');
+ const {scene}=createIslandScene(()=>demo,()=>new T.SpriteMaterial()),camera=islandCamera();
+ const signs=scene.children.filter((o):o is T.Sprite=>o instanceof T.Sprite&&o.userData.labelRole==='station');
+ for(const [width,requestedHeight] of [[1280,228],[390,288],[600,248],[1440,188],[390,40],[390,772],[1280,728],[1280,228]]){
+  const height=fitIslandCamera(camera,scene,width,requestedHeight);
+  const rectangles=signs.map(sign=>{
+   assert.ok(sign.visible,sign.name);
+   const p=sign.position.clone().project(camera),x=(p.x+1)*width/2,y=(1-p.y)*height/2;
+   const halfWidth=sign.userData.labelWidth/2;
+   return {left:x-halfWidth,right:x+halfWidth,top:y-14,bottom:y+14};
+  });
+  for(const [i,a] of rectangles.entries()){
+   assert.ok(a.left>=-1e-8&&a.right<=width+1e-8&&a.top>=-1e-8&&a.bottom<=height+1e-8,`${width}x${height}: bounds`);
+   for(const b of rectangles.slice(i+1))assert.ok(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top,`${width}x${height}: overlap`);
+  }
+ }
+});

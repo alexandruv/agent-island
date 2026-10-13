@@ -11,7 +11,7 @@ npm test
 npm run dev
 ```
 
-Open the URL printed by Vite. The isometric island fills the window beneath the slim header at every viewport, including phones. Station signs stay at 16 CSS pixels and are positioned without overlap; the camera fits the island and support landmarks on resize. Robots and issue crates sit along the seven-station road. Hover an entity to see its robot/log or issue information in the header; tap or click it for details and the lane slide-over. “Lane view” opens the same panel; “Close lane view” dismisses it. Lane buttons support keyboard selection, Enter opens details, and Escape or Close dismisses the dialog and returns focus. Select the offline fixture for cached/stale status and dimming.
+Open the URL printed by Vite. The isometric island fills the window beneath the slim header at every viewport, including phones. Station signs stay at 16 CSS pixels and are positioned without overlap; the camera fits the island and support landmarks on resize. On short windows, signs switch to compact rows when placement near their stations runs out of space. If even those rows cannot fit at 16px, the island area scrolls vertically to keep every sign readable. Robots and issue crates sit along the seven-station road. Hover an entity to see its robot/log or issue information in the header; tap or click it for details and the lane slide-over. “Lane view” opens the same panel; “Close lane view” dismisses it. Lane buttons support keyboard selection, Enter opens details, and Escape or Close dismisses the dialog and returns focus. Select the offline fixture for cached/stale status and dimming.
 
 Reduced motion keeps the island and disables its animation loop, including when the preference changes while the page is open. WebGL initialization failure or context loss switches to lanes with a disabled “Lane view only” button. Preview links are absent in this synthetic MVP; ready-for-human never means merged or serving.
 
@@ -28,6 +28,6 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-The browser suite checks 1280×800, 1440×900 and 390×844, canvas size, hidden default lanes, sign rectangles, selection, WebGL failure/context loss, reduced motion, and offline details. Screenshots are saved to `test-results/island-1280.png`, `island-1440.png` and `island-390.png` and attached to the Playwright results. Attach these files to the PR after an authorized operator run if the managed host cannot launch Chromium.
+The browser suite checks 1280×800, 1440×900 and 390×844, canvas size, hidden default lanes, sign rectangles through constrained-height resizes, selection, WebGL failure/context loss, reduced motion, and offline details. Screenshots are saved to `test-results/island-1280.png`, `island-1440.png` and `island-390.png` and attached to the Playwright results. Attach these files to the PR after an authorized operator run if the managed host cannot launch Chromium.
 
 Actual validation and the documented host-only browser restriction are recorded in [docs/validation.md](docs/validation.md). On the specifically documented restricted host, `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` records explicit browser skips without launching Chromium. This is not an acceptance pass; normal browser runs omit that variable. Operator browser verification and screenshot attachment remain required before deployment.
