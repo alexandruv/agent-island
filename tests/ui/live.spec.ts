@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+import {demo} from '../../src/fixture';
+test.skip(process.env.ISLAND_BROWSER_HOST_BLOCKED==='1','Managed host denies Chromium bootstrap; operator validation required');
+for(const width of [360,390,1280])test(`live selection, stale and reconnect at ${width}px`,async({page})=>{
+ const s={...structuredClone(demo),capturedAt:new Date().toISOString(),heartbeatAt:new Date().toISOString(),sources:{paseo:'ok',permits:'ok',github:'ok',miniOps:'ok'},status:{source:'live',online:true,stale:false}};
+ let peer:any;let connections=0;
+ await page.route('**/api/snapshot',route=>route.fulfill({json:s}));
+ await page.routeWebSocket('**/api/feed',ws=>{peer=ws;connections++;ws.send(JSON.stringify({type:'snapshot',snapshot:s}));});
+ await page.setViewportSize({width,height:844});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');
+ await expect(page.locator('#status')).toContainText('LIVE');await expect(page.locator('.eyebrow')).not.toContainText('DEMO');
+ await page.locator('#view').click();const id=s.agents[0].id;await page.locator(`[id="${id}"]`).focus();await page.keyboard.press('Enter');
+ s.agents[0].station=5;s.agents[0].state='needs-human';peer.send(JSON.stringify({type:'snapshot',snapshot:s}));
+ await expect(page.getByRole('dialog')).toContainText('needs-human');await expect(page.getByRole('dialog')).toContainText(id);
+ s.agents[0].station='archive';s.agents[0].state='closed';peer.send(JSON.stringify({type:'snapshot',snapshot:s}));await expect(page.getByRole('dialog')).toContainText('closed');
+ s.agents=[];peer.send(JSON.stringify({type:'snapshot',snapshot:s}));await expect(page.getByRole('dialog')).toContainText('Removed from the latest snapshot');
+ await page.keyboard.press('Escape');await expect(page.locator('#view')).toBeFocused();
+ peer.close();await expect(page.locator('#status')).toContainText('cached data stale');await expect.poll(()=>connections).toBe(2);await expect(page.locator('#status')).toContainText('LIVE');
+ await expect(page.locator('.station-label')).toHaveCount(11);await expect(page.getByRole('link')).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

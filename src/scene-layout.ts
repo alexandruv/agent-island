@@ -22,7 +22,7 @@ export function createIssueCrates(snapshot: Snapshot): T.Mesh[] {
     counts.set(station,slot+1);
     const p = station === 'archive' ? new T.Vector3(-9,0,4) : stationPoints[station-1];
     const crate = new T.Mesh(new T.BoxGeometry(.5,.5,.5),
-      new T.MeshStandardMaterial({color:0xb78c55,flatShading:true,roughness:.88}));
+      new T.MeshStandardMaterial({color:issue.labels.includes('agent:needs-human')?0xc94c61:0xb78c55,flatShading:true,roughness:.88}));
     // Separate rows keep collocated issues individually selectable.
     crate.position.set(p.x-.8-(slot%3)*.65,.4,p.z+.5+Math.floor(slot/3)*.65);
     crate.name = `Issue #${issue.number} · ${issue.id}`;

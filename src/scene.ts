@@ -100,19 +100,6 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  stations.forEach(([n,title],i)=>{const p=points[i];mesh(new T.BoxGeometry(1.5,1.3,1.3),i===6?0x88715a:0x657083,p.x,.8,p.z-.8);const roof=mesh(new T.ConeGeometry(1.2,.8,4),0x24394c,p.x,1.85,p.z-.8);roof.rotation.y=Math.PI/4;
  if(i===3)mesh(new T.BoxGeometry(.8,1.7,.8),0x617891,p.x,2,p.z-.8);
  mesh(new T.BoxGeometry(.5,.5,.04),0xffce78,p.x,1,p.z-.13);sign(`${n} ${title}`,p.x,i===4?4.8:3.3,p.z,'station');
- const robot=new T.Group();robot.position.set(p.x+.8,.6,p.z+.5);scene.add(robot);robots.push(robot);
- const part=(g:T.BufferGeometry,c:number,x:number,y:number,z:number)=>{const m=new T.Mesh(g,material(c));m.position.set(x,y,z);robot.add(m);};
- part(new T.BoxGeometry(.45,.6,.35),0xa7c4d3,0,.1,0);part(new T.SphereGeometry(.37,8,6),0xb2ccda,0,.7,0);part(new T.BoxGeometry(.42,.18,.1),0x12253a,0,.72,.3);for(const x of [-.13,.13])part(new T.SphereGeometry(.045,6,4),0x79eaff,x,.72,.36);
- part(new T.BoxGeometry(.18,.3,.24),0x4e6276,-.18,-.3,0);part(new T.BoxGeometry(.18,.3,.24),0x4e6276,.18,-.3,0);
- const a=snapshot().agents.find(a=>a.station===n)!;robot.userData.entityId=a.id;
- mesh(new T.BoxGeometry(.9,.07,.08),0x26364e,p.x+.8,1.7,p.z+.5);
- if(contextText(a.contextPercent)!=='Context unknown'){const ratio=a.contextPercent!/100;mesh(new T.BoxGeometry(.9*ratio,.07,.09),0x80cfa6,p.x+.8-.45*(1-ratio),1.7,p.z+.5);}
- sign(`${symbols[a.state]} ${a.name} · ${contextText(a.contextPercent)}`,p.x,2.65,p.z+.6,'robot');
- if(a.latestLog)sign(a.latestLog,p.x,4,p.z+.6,'robot');
- if(a.state==='waiting-permit')sign('! Permit needed',p.x+.8,1.9,p.z+.5,'robot');
- if(a.state==='idle')mesh(new T.BoxGeometry(1,.15,.4),0x8c6c49,p.x+.8,.2,p.z+.5);
- if(['failed','stuck','needs-human'].includes(a.state))robot.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshStandardMaterial).color.setHex(0xc94c61);});
- if(a.state==='needs-human')for(let k=0;k<3;k++)mesh(new T.IcosahedronGeometry(.2+k*.1,0),0xb84b60,p.x+.8,1.8+k*.4,p.z+.5);
  // Distinct silhouettes follow the dock → yard → workshop → tower → shed → gate → shop road.
  if(i===1)for(let k=0;k<3;k++)mesh(new T.BoxGeometry(.6,.5,.6),0x8d704f,p.x-1,.3+k*.5,p.z-1);
  if(i===2){mesh(new T.CylinderGeometry(.16,.22,1.4,6),0x4b5664,p.x-.5,2,p.z-1);mesh(new T.BoxGeometry(1,.4,.8),0x4a3b31,p.x, .3,p.z+.4);}
@@ -121,12 +108,31 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  if(i===6){mesh(new T.BoxGeometry(1.7,.12,.8),0x7292ab,p.x,1.2,p.z+.1);for(const dx of [-.45,.45])mesh(new T.BoxGeometry(.35,.6,.05),0xffcf78,p.x+dx,.7,p.z-.12);}
  if(i===1){const radar=mesh(new T.ConeGeometry(.6,.2,12),0x76ae8f,p.x+1,1.9,p.z-1);radar.rotation.z=.8;}
  });
+ const counts=new Map<number|string,number>();
+ for(const a of snapshot().agents){
+ const index=counts.get(a.station)??0;counts.set(a.station,index+1);
+ const anchor=a.station==='archive'?new T.Vector3(-9,0,4):points[a.station-1];
+ const p=anchor.clone().add(new T.Vector3((index%4)*.65,0,Math.floor(index/4)*.65));
+ const robot=new T.Group();robot.position.set(p.x+.8,.6,p.z+.5);scene.add(robot);robots.push(robot);
+ const part=(g:T.BufferGeometry,c:number,x:number,y:number,z:number)=>{const m=new T.Mesh(g,material(c));m.position.set(x,y,z);robot.add(m);};
+ part(new T.BoxGeometry(.45,.6,.35),0xa7c4d3,0,.1,0);part(new T.SphereGeometry(.37,8,6),0xb2ccda,0,.7,0);part(new T.BoxGeometry(.42,.18,.1),0x12253a,0,.72,.3);for(const x of [-.13,.13])part(new T.SphereGeometry(.045,6,4),0x79eaff,x,.72,.36);
+ part(new T.BoxGeometry(.18,.3,.24),0x4e6276,-.18,-.3,0);part(new T.BoxGeometry(.18,.3,.24),0x4e6276,.18,-.3,0);
+ robot.userData.entityId=a.id;
+ mesh(new T.BoxGeometry(.9,.07,.08),0x26364e,p.x+.8,1.7,p.z+.5);
+ if(contextText(a.contextPercent)!=='Context unknown'){const ratio=a.contextPercent!/100;mesh(new T.BoxGeometry(.9*ratio,.07,.09),0x80cfa6,p.x+.8-.45*(1-ratio),1.7,p.z+.5);}
+ sign(`${symbols[a.state]} ${a.name} · ${contextText(a.contextPercent)}`,p.x,2.65,p.z+.6,'robot');
+ if(a.state==='working' && a.latestLog)sign(a.latestLog,p.x,4,p.z+.6,'robot');
+ if(a.state==='waiting-permit'){for(const badge of [mesh(new T.BoxGeometry(.12,.4,.12),0xffd050,p.x+.8,2.05,p.z+.5),mesh(new T.SphereGeometry(.08,6,4),0xffd050,p.x+.8,1.72,p.z+.5)])badge.userData.entityId=a.id;}
+ if(a.state==='idle')mesh(new T.BoxGeometry(1,.15,.4),0x8c6c49,p.x+.8,.2,p.z+.5);
+ if(['failed','stuck','needs-human'].includes(a.state))robot.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshStandardMaterial).color.setHex(0xc94c61);});
+ if(a.state==='needs-human')for(let k=0;k<3;k++)mesh(new T.IcosahedronGeometry(.2+k*.1,0),0xb84b60,p.x+.8,1.8+k*.4,p.z+.5);
+
+ }
  for(const crate of createIssueCrates(snapshot()))scene.add(crate);
  mesh(new T.BoxGeometry(2.8,.18,2),0x846b50,-6,-.05,4);
  for(const x of [-6.9,-5.1])mesh(new T.CylinderGeometry(.12,.12,2,6),0x665240,x,-.8,4.7);
  for(const x of [3.3,4.7])mesh(new T.BoxGeometry(.18,1.6,.25),0xc3b17a,x,.8,4.5);
  mesh(new T.BoxGeometry(.4,.7,.3),0xafc6d2,-4,.7,6);mesh(new T.SphereGeometry(.3,8,6),0xb2ccda,-4,1.3,6);mesh(new T.BoxGeometry(.3,.4,.05),0xe8d1a0,-3.7,.9,6.2);
- const archivedHead=mesh(new T.SphereGeometry(.3,8,6),0x7b8c9e,-9,.4,4);const archivedBody=mesh(new T.BoxGeometry(.4,.5,.3),0x677b8d,-9,-.1,4);archivedHead.userData.entityId=archivedBody.userData.entityId=snapshot().agents.find(a=>a.station==='archive')!.id;
  // Visible route cues are informational; no production action exists.
  const loop=new T.CatmullRomCurve3([points[3],new T.Vector3(0,.4,-.7),points[2]]);mesh(new T.TubeGeometry(loop,20,.055,4),0xe8b65d,0,0,0);sign('↺ Review → Build',0,1,-1);
  const changes=new T.CatmullRomCurve3([points[6],new T.Vector3(-4,.4,6),points[0]]);for(let n=0;n<18;n++){const p=changes.getPoint(n/18);mesh(new T.SphereGeometry(.055,6,4),0xc0d6ec,p.x,p.y,p.z);}sign('Changes → Intake',-4,1.5,5.8);
@@ -140,22 +146,23 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
 export function drawIsland(host: Element, snapshot:()=>Snapshot,onUnavailable:()=>void){
  const renderer=new T.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.append(renderer.domElement);
  const camera=islandCamera();
- const {scene,robots,beacon}=createIslandScene(snapshot,text=>{
+ const labelMaterial=(text:string)=>{
   const canvas=document.createElement('canvas');const c=canvas.getContext('2d')!;
   c.font=`bold ${labelFontPixels*2}px sans-serif`;canvas.width=Math.ceil(c.measureText(text).width)+48;canvas.height=56;
   c.fillStyle='#101e32';c.fillRect(0,0,canvas.width,56);c.strokeStyle='#97b4d3';c.strokeRect(1,1,canvas.width-2,54);
   c.fillStyle='#f1f5ff';c.font=`bold ${labelFontPixels*2}px sans-serif`;c.textAlign='center';c.textBaseline='middle';c.fillText(text,canvas.width/2,28);
   return new T.SpriteMaterial({map:new T.CanvasTexture(canvas),depthTest:false});
- });
+ };
+ let {scene,robots,beacon}=createIslandScene(snapshot,labelMaterial);
  renderer.domElement.addEventListener('click',e=>{const rect=renderer.domElement.getBoundingClientRect();const id=pickEntity(scene,camera,new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1));if(id)document.getElementById(id)?.click();});
- const signs=scene.children.filter((o):o is T.Sprite=>o instanceof T.Sprite&&o.userData.labelRole==='station');
+ let signs=scene.children.filter((o):o is T.Sprite=>o instanceof T.Sprite&&o.userData.labelRole==='station');
  const labels=signs.map(sign=>{const label=document.createElement('span');label.className='station-label';label.textContent=sign.name;host.append(label);return label;});
  const hint=document.createElement('div');hint.className='entity-hint';document.querySelector('header')!.append(hint);
  renderer.domElement.addEventListener('pointermove',e=>{const rect=renderer.domElement.getBoundingClientRect();const id=pickEntity(scene,camera,new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1));hint.textContent=id?document.getElementById(id)?.textContent??'':'';});
  renderer.domElement.addEventListener('pointerleave',()=>{hint.textContent='';});
  const motion=matchMedia('(prefers-reduced-motion: reduce)');
  let lost=false;
- const paint=(time=0)=>{const feed=snapshot().status; (beacon.material as T.MeshStandardMaterial).color.setHex(!feed.online?0x34435d:feed.stale?0xc18e45:0xffd784);beacon.scale.setScalar(!motion.matches&&feed.online&&!feed.stale?1+Math.sin(time/700)*.12:1);robots.forEach((r,i)=>{const a=snapshot().agents.find(a=>a.station===i+1);r.position.y=.6+(!motion.matches&&a?.state==='working'&&feed.online?Math.sin(time/240)*.08:0);});renderer.render(scene,camera);};
+ const paint=(time=0)=>{const feed=snapshot().status; (beacon.material as T.MeshStandardMaterial).color.setHex(!feed.online?0x34435d:feed.stale?0xc18e45:0xffd784);beacon.scale.setScalar(!motion.matches&&feed.online&&!feed.stale?1+Math.sin(time/700)*.12:1);robots.forEach(r=>{const a=snapshot().agents.find(a=>a.id===r.userData.entityId);r.position.y=.6+(!motion.matches&&a?.state==='working'&&feed.online?Math.sin(time/240)*.08:0);});renderer.render(scene,camera);};
  const resize=()=>{const width=host.getBoundingClientRect().width,availableHeight=host.parentElement!.clientHeight;if(lost||width<=0||availableHeight<=0)return;
   let height=availableHeight;
   height=fitIslandCamera(camera,scene,width,height);
@@ -168,7 +175,18 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot,onUnavailable:()
  new ResizeObserver(resize).observe(host.parentElement!);resize();
  const animate=()=>{if(lost)return;renderer.setAnimationLoop(motion.matches?null:paint);paint();};
  motion.addEventListener('change',animate);
- document.querySelector('#fixture')?.addEventListener('change',()=>paint());
+ let entities=JSON.stringify([snapshot().agents,snapshot().issues, snapshot().previewUrl, snapshot().status]);
+ document.addEventListener('island-snapshot',()=>{
+  if(lost)return;
+  const next=JSON.stringify([snapshot().agents,snapshot().issues,snapshot().previewUrl,snapshot().status]);
+  if(next!==entities){
+   entities=next;
+   scene.traverse(o=>{if(o instanceof T.Mesh || o instanceof T.Sprite){if(o instanceof T.Mesh)o.geometry.dispose();const materials=Array.isArray(o.material)?o.material:[o.material];for(const m of materials){(m as T.MeshStandardMaterial).map?.dispose();m.dispose();}}});
+   ({scene,robots,beacon}=createIslandScene(snapshot,labelMaterial));
+   signs=scene.children.filter((o):o is T.Sprite=>o instanceof T.Sprite&&o.userData.labelRole==='station');
+   hint.textContent='';resize();
+  }else paint();
+ });
  renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();lost=true;renderer.setAnimationLoop(null);onUnavailable();});
  animate();
 }
