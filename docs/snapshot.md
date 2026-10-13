@@ -9,3 +9,5 @@
 - `previewUrl`: nullable actual verified HTTPS URL, never inferred or fabricated. Credentials in URLs are rejected. Public link eligibility additionally requires live, online, fresh data and an issue with both explicit merge and serving-preview timestamps. Demo/cache cannot attest to preview availability. Later integration must verify provenance, not merely accept arbitrary strings as trusted metadata.
 
 Fixture switching exercises online and offline states only. Production lock is independent of snapshots and has no unlock path. Any future feed renderer must reconcile entities by stable ID; this MVP's geometry is assembled for its fixed fixture, while lanes derive from the typed snapshot.
+
+Issue #10 now supplies this boundary through optional read-only server routes without changing the fixture-driven visual UI. Transport adds allowlisted per-source status and a nullable host heartbeat; see [collector/feed](collector-feed.md). The collector deliberately omits raw display strings, logs, claims and unverified merge/preview metadata.
