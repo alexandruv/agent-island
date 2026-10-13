@@ -52,3 +52,13 @@ No preview was deployed, and production is untouched.
 - PASS: `npm run test:ui -- --list` discovers the existing four browser tests. This is discovery, not a browser execution pass.
 - NOT RUN / OPERATOR PENDING: opt-in browser/phone assertions retain the documented macOS browser startup denial. No denied launch was retried or security control changed. Optional Docker build/run, real CLI/auth/source and Mini Ops schema qualification, private authentication/TLS/proxy checks and deployment remain operator-only. No host service, credentials, permissions, orchestrator worker changes, merge or deployment were performed.
 - LIMITATION: baseline contains no health JSON/revision endpoint; the new exact `/health.json` proof is tested against its built artifact. Live UI rendering remains #3. Real Mini Ops schema compatibility has not been claimed; unsupported state yields invalid/offline/stale as documented in [collector-feed.md](collector-feed.md).
+
+## PR #12 authenticated review rework
+
+2026-10-13, assigned `agent/issue-10` worktree, reviewed head `4f4716e`.
+
+- PASS: `npm run build`, `npm test` (29 tests, zero failures/skips), and `git diff --check`. The existing approximately 508 kB scene chunk warning remains.
+- PASS: unmatched WebSocket paths close promptly after 35 repeated attempts without blocking legitimate feed connections; an explicitly owned development HMR request is handed off. Real built preview rejects unmatched paths and Vite-protocol requests at `/`, with no ambient credentials. Exact health artifact and existing isolation/transport checks remain passing.
+- PASS: a real fixture child ignores SIGTERM, is killed at the five-second SIGKILL deadline, and no longer exists; collection reports timeout and the next single-flight poll succeeds. Hostile inherited-property names and non-string statuses serialize as unknown agents and pass feed sanitization.
+- PASS: `npm run test:ui -- --list` discovers four opt-in tests. NOT RUN: browser assertions retain the documented host launch denial; discovery is not execution. Live CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were altered or host services activated.
+- Usage remains `npm run build && npm test`, then configured synthetic `npm run preview`; hard timeout, unknown status and development-only HMR handoff behavior are documented in [collector-feed.md](collector-feed.md).

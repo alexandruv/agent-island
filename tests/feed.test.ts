@@ -118,3 +118,46 @@ test('real subprocess fixtures enforce output and timeout bounds without leaking
  await assert.rejects(runCommand(process.execPath,['-e',`process.stdout.write('fake-secret'.repeat(${MAX_BYTES}))`],process.cwd()),(e:any)=>e.status==='invalid'&&!e.message.includes('fake-secret'));
  await assert.rejects(runCommand(process.execPath,['-e','setTimeout(()=>{},60000)'],process.cwd()),(e:any)=>e.status==='timeout');
 });
+
+ test('hostile and non-string Paseo statuses remain serializable unknown agents',async()=>{
+  for(const status of ['constructor','__proto__','toString','hasOwnProperty',{},null,42]){
+   const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'builder',status}],async()=>({projects:{[config.repo]:{heartbeatAt:new Date(now).toISOString()}}}),()=>now);
+   const feed=await c.collect();assert.equal(feed.sources.paseo,'ok');assert.equal(feed.agents[0].state,'unknown');
+   assert.equal(sanitizeFeed(JSON.parse(JSON.stringify(feed)),now).agents[0].state,'unknown');
+  }
+ });
+ test('unmatched upgrades close while explicitly owned development HMR is handed off',async()=>{
+  for(const development of [false,true]){
+   const store=new FeedStore({mode:'demo',origins:['http://allowed.example'],revision:'unknown'});
+   const server=createServer();const feed=attachFeed(server,store,10000,req=>development&&req.url==='/'&&req.headers['sec-websocket-protocol']==='vite-hmr');
+   const {WebSocketServer}=await import('ws');const hmr=new WebSocketServer({noServer:true});
+   server.on('upgrade',(req,socket,head)=>{if(development&&req.url==='/'&&req.headers['sec-websocket-protocol']==='vite-hmr')hmr.handleUpgrade(req,socket,head,ws=>{ws.close();});});
+   server.listen(0,'127.0.0.1');await once(server,'listening');const base=`ws://127.0.0.1:${(server.address() as {port:number}).port}`;
+   try{
+    for(let i=0;i<35;i++){
+     const ws=new WebSocket(base+'/unowned','vite-hmr',{origin:'http://allowed.example',handshakeTimeout:1000});
+     const closed=new Promise(resolve=>ws.once('close',resolve));const [error]=await once(ws,'error');assert.doesNotMatch(error.message,/timed out/);await closed;
+    }
+    const ws=new WebSocket(base+'/','vite-hmr',{origin:'http://allowed.example',handshakeTimeout:1000});
+    if(development){await once(ws,'open');await once(ws,'close');}
+    else {const closed=new Promise(resolve=>ws.once('close',resolve));const [error]=await once(ws,'error');assert.doesNotMatch(error.message,/timed out/);await closed;}
+    const live=new WebSocket(base+'/api/feed',{origin:'http://allowed.example'});await once(live,'open');live.close();await once(live,'close');
+   }finally{feed.close();hmr.close();await new Promise<void>(r=>server.close(()=>r()));}
+  }
+ });
+ test('SIGTERM-resistant subprocess is killed at the deadline and single-flight polling recovers',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'island-hard-timeout-'));const pidFile=join(dir,'pid');
+  try{
+   let calls=0;
+   const c=new Collector(config,async(binary,args)=>{
+    if(binary==='gh')return [];if(args[0]==='permit')return [];
+    calls++;if(calls>1)return [];
+    return runCommand(process.execPath,['-e',"process.on('SIGTERM',()=>{});require('node:fs').writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000)",pidFile],dir);
+   },async()=>mini(),()=>now);
+   const started=Date.now();const first=c.collect();assert.equal(c.collect(),first);
+   const feed=await first;assert.equal(feed.sources.paseo,'timeout');assert.ok(Date.now()-started<8000);
+   const {readFile}=await import('node:fs/promises');const pid=Number(await readFile(pidFile,'utf8'));
+   assert.throws(()=>process.kill(pid,0),(e:any)=>e.code==='ESRCH');
+   assert.equal((await c.collect()).sources.paseo,'ok');assert.equal(calls,2);
+  }finally{await rm(dir,{recursive:true});}
+ });

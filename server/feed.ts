@@ -59,7 +59,7 @@ export class FeedStore {
  }
 }
 export function healthJSON(revision:string) {return JSON.stringify({status:'ok',revision});}
-export function attachFeed(server:import('node:events').EventEmitter,store:FeedStore, heartbeatMs=10000) {
+export function attachFeed(server:import('node:events').EventEmitter,store:FeedStore, heartbeatMs=10000, ownsDevelopmentUpgrade:(req:IncomingMessage)=>boolean=()=>false) {
  const wss=new WebSocketServer({noServer:true,maxPayload:1024,perMessageDeflate:false});
  wss.on('error',()=>{});
  const attempts=new Map<string,{count:number;until:number}>();
@@ -70,8 +70,9 @@ export function attachFeed(server:import('node:events').EventEmitter,store:FeedS
   client.send(JSON.stringify({type:'heartbeat',at:new Date().toISOString()}));
  }},heartbeatMs); timer.unref();
  const upgrade=(req:IncomingMessage,socket:import('node:stream').Duplex,head:Buffer)=>{
-  if(req.url!=='/api/feed')return; // Vite HMR owns its separate upgrade path.
-  const reject=()=>{socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');};
+  if(req.url!=='/api/feed' && ownsDevelopmentUpgrade(req))return;
+  const reject=()=>{socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');socket.destroy();};
+  if(req.url!=='/api/feed'){reject();return;}
   const ip=req.socket.remoteAddress??'unknown',now=Date.now();
   for(const [key,value] of attempts)if(value.until<now)attempts.delete(key);
   const attempt=attempts.get(ip)??{count:0,until:now+60000};

@@ -20,6 +20,10 @@ test('built Vite preview runs synthetic HTTP/WebSocket without ambient credentia
   assert.match(await (await fetch(origin)).text(),/assets\/index-/);
   assert.equal(await (await fetch(origin+'/health.json')).text(),await readFile('dist/health.json','utf8'));
   const response=await (await fetch(origin+'/api/snapshot')).json();assert.equal(response.status.source,'demo');assert.equal(response.agents[0].id,'demo-robot-1');
+  for(const path of ['/unowned','/']){
+   const rejected=new WebSocket(origin.replace('http:','ws:')+path,'vite-hmr',{origin,handshakeTimeout:1000});
+   const closed=new Promise(resolve=>rejected.once('close',resolve));const [error]=await once(rejected,'error');assert.doesNotMatch(error.message,/timed out/);await closed;
+  }
   const ws=new WebSocket(origin.replace('http:','ws:')+'/api/feed',{origin});const message=once(ws,'message');const [body]=await message;assert.equal(JSON.parse(body.toString()).snapshot.status.source,'demo');ws.close();await once(ws,'close');
  }finally{const exit=once(child,'exit');child.kill('SIGTERM');await exit;await rm(dir,{recursive:true});}
 });

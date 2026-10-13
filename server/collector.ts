@@ -21,10 +21,13 @@ export function commands(c: CollectorConfig) {
 }
 export function commandFailure(binary:string, e:{code?:string|number;killed?:boolean}):SourceStatus {return e.code==='ENOENT'?'unavailable':e.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER'?'invalid':e.killed?'timeout':binary==='gh'&&e.code===4?'unauthenticated':'error';}
 export function runCommand(binary:string, args:readonly string[], cwd:string):Promise<unknown> {
- return new Promise((resolve,reject)=>execFile(binary,[...args],{cwd,timeout:5000,maxBuffer:MAX_BYTES,encoding:'utf8',shell:false},(err,stdout)=>{
+ return new Promise((resolve,reject)=>execFile(binary,[...args],{cwd,timeout:5000,killSignal:'SIGKILL',maxBuffer:MAX_BYTES,encoding:'utf8',shell:false},(err,stdout)=>{
   if(err) { const e=err as typeof err & {code?:string|number;killed?:boolean}; reject(new SourceError(commandFailure(binary,e))); return; }
   try {resolve(JSON.parse(stdout));} catch {reject(new SourceError('invalid'));}
  }));
+}
+function paseoState(status:unknown):AgentState {
+ switch(status) {case 'running':return 'working';case 'idle':return 'idle';case 'error':return 'failed';case 'archived':return 'closed';default:return 'unknown';}
 }
 const labels = new Set(['agent:queued','agent:working','agent:under-review','agent:reworking','agent:ready-for-human','agent:needs-human']);
 const states = new Set<AgentState>(['working','idle','waiting-permit','failed','stuck','needs-human','closed','unknown']);
@@ -45,7 +48,7 @@ export class Collector {
   const parse=(i:number,fn:()=>void)=>{if(feed.sources[names[i]]==='ok') try{fn();}catch{feed.sources[names[i]]='invalid';}};
   parse(0,()=>{feed.agents=list(values[0]).filter(a=>this.config.agents.some(x=>x.id===a.id)).map(a=>{
    const alias=this.config.agents.find(x=>x.id===a.id)!;
-   return {id:agentId(alias.id),name:alias.name,station:alias.station,state:({running:'working',idle:'idle',error:'failed',archived:'closed'} as Record<string,AgentState>)[String(a.status)]??'unknown',contextPercent:null,latestLog:null};
+   return {id:agentId(alias.id),name:alias.name,station:alias.station,state:paseoState(a.status),contextPercent:null,latestLog:null};
   });});
   parse(1,()=>{const permits=list(values[1]); for(const a of feed.agents) if(permits.some(p=>typeof p.agentId==='string'&&agentId(p.agentId)===a.id)) a.state='waiting-permit';});
   parse(2,()=>{feed.issues=list(values[2]).slice(0,100).map(i=>{
