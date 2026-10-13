@@ -1,6 +1,6 @@
 # Read-only collector and feed
 
-Issue #10 adds collection and transport. The existing island and phone lanes remain explicitly synthetic; consuming live entities in that UI belongs to #3. No action endpoint exists. GET `/api/snapshot` shows an unavailable, empty, offline/stale live snapshot by default, rather than substituting demo data. `/api/feed` is the WebSocket endpoint. These routes exist on Vite dev and preview servers; static Cloudflare Pages does not run this server and cannot provide a WebSocket feed. Production remains locked.
+Issue #10 adds collection and transport. Issue #3 connects both island and phone lanes to these same normalized snapshots. No action endpoint exists. GET `/api/snapshot` shows an unavailable, empty, offline/stale live snapshot by default, rather than substituting demo data. `/api/feed` is the WebSocket endpoint. These routes exist on Vite dev and preview servers; static Cloudflare Pages does not run this server and cannot provide a WebSocket feed. Production remains locked.
 
 ## Local build and synthetic run
 
@@ -14,13 +14,13 @@ cp tests/fixtures/demo-feed.json /tmp/agent-island-demo-feed.json
 AGENT_ISLAND_FEED_CONFIG=/tmp/agent-island-demo-feed.json npm run preview
 ```
 
-Visit `http://127.0.0.1:4173`. The feed reports `status.source: "demo"`; the unchanged visual UI is always DEMO. Without the startup configuration the feed reports unavailable. Development uses `npm run dev` on loopback. No collector is started by either command, tests or build. Tests use fabricated command/file/feed data and run an actual built preview with a minimal environment containing no ambient credentials. Browser checks are opt-in (`npm run test:ui`); the existing host browser denial remains documented in validation.md.
+Visit `http://127.0.0.1:4173`. The feed reports `status.source: "demo"`; the visual UI conspicuously marks these snapshots DEMO. Without the startup configuration the feed reports unavailable. Development uses `npm run dev` on loopback. No collector is started by either command, tests or build. Tests use fabricated command/file/feed data and run an actual built preview with a minimal environment containing no ambient credentials. Browser checks are opt-in (`npm run test:ui`); the existing host browser denial remains documented in validation.md.
 
 The optional Dockerfile runs **synthetic** preview only: no Paseo executable/socket, Mac home, GitHub/Cloudflare credentials or host commands are provided. Example operator-local container invocation (not executed by this task):
 
 ```sh
 docker build -t agent-island-demo .
-docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp -p 127.0.0.1:4173:4173 agent-island-demo
+docker run --rm -e MAO_PROJECT=agent-island-demo -e MAO_REVISION=demo --read-only --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp -p 127.0.0.1:8080:8080 agent-island-demo
 ```
 
 Do not mount host homes, sockets or credentials. A container is not a host collector. Docker build/run qualification is operator-only and not claimed as tested here. Public/static preview stays synthetic unless the operator explicitly supplies an approved sanitized feed.
@@ -99,10 +99,13 @@ Retention is one atomically replaced mode-0600 output file and one in-memory lat
 
 WebSocket connects receive `{ "type": "snapshot", "snapshot": ... }` immediately. Every ten seconds the server refreshes once, broadcasts a snapshot and sends `{ "type": "heartbeat", "at": "ISO timestamp" }` and a protocol ping. A missing pong closes the connection at the next tick. Application messages close with code 1008; frames over 1024 bytes close with 1009. No inbound operation invokes an action. Maximum 32 connections, 256 KiB buffered outbound data, ten connection attempts per remote address per minute, and 128 bounded rate-limit entries. Compression is disabled. Exact startup-configured browser origins are mandatory for WebSocket upgrades; missing/unapproved origins are rejected. Initial GET snapshots reject unapproved supplied origins; there is no CORS wildcard. Errors are fixed short responses. Every unmatched upgrade path is immediately closed, including requests advertising Vite protocols in preview. Only the development server explicitly hands its configured HMR path and `vite-hmr`/`vite-ping` protocol to Vite; Vite retains its own token/origin checks. Preview has no HMR handoff.
 
-Clients should reconnect with jittered exponential backoff (1, 2, 4, 8, 16, then at least 30 seconds), reset after a stable connection, and mark stale/offline on missing heartbeats. Do not use reconnect loops as a poller. Server limits remain enforced across reconnects; the UI integration is deferred to #3.
+Clients should reconnect with jittered exponential backoff (1, 2, 4, 8, 16, then at least 30 seconds), reset after a stable connection, and mark stale/offline on missing heartbeats. Do not use reconnect loops as a poller. Server limits remain enforced across reconnects; the client implements this policy and expires snapshots locally without treating transport heartbeats as source health.
 
 The starting static MVP contains **no health JSON or revision endpoint**. This change adds exact `/health.json` proof `{ "status": "ok", "revision": "<40-char SHA or unknown>" }` serialized without spaces/newline. Build with `AGENT_ISLAND_REVISION=<SHA> npm run build` and use the same revision in runtime configuration; preview startup rejects a mismatch with the built proof. Health proves application revision, never Mac connectivity. Tests compare runtime bytes with the built health artifact. Existing static assets and visual behavior are preserved. Static Pages can serve the built health artifact but requires a separately qualified transport for live snapshots; no deployment is performed here.
 
 ## Operator qualification before live exposure
 
 Verify authorized repository/agent selection, CLI versions and real Mini Ops display schema; observe empty, unauthenticated, daemon-unavailable and heartbeat-offline behavior without approving permits. Independently review redaction using fabricated hostile/secret strings. Verify file directory protections and any private front-end authentication, TLS, proxy origin policy and rate limits. Confirm feed shutdown becomes stale/offline, revision matches the build, and isolated preview contains no host mounts/credentials. Browser/phone and optional container checks remain pending. Mini Ops owns independent review, merge and publishing; production remains locked.
+
+
+Issue #3 runtime: `npm start` requires `MAO_PROJECT` and `MAO_REVISION`, binds 0.0.0.0 on unprivileged `PORT` (8080 default), and GET `/health` returns exactly JSON.stringify({project: MAO_PROJECT, revision: MAO_REVISION}). Missing identity stops start; missing identity in direct preview returns 503 at `/health`. POST is rejected. This supplements `/health.json`, which still proves build revision and is checked at preview startup. Only local runtime paths are documented; Mini Ops has not verified or activated any phone-ready public route. Live collector projection, protected private serving and sanitized bounded logs/merge/preview adapter remain operator requirements. Current backend intentionally strips logs and serving metadata; the UI cannot invent them.

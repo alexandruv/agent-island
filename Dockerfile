@@ -17,5 +17,6 @@ COPY --from=build /app/vite.config.ts ./vite.config.ts
 COPY tests/fixtures/demo-feed.json /feed-config/demo-feed.json
 ENV AGENT_ISLAND_FEED_CONFIG=/feed-config/demo-feed.json
 USER node
-EXPOSE 4173
-CMD ["node", "node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "4173", "--strictPort", "--configLoader", "runner"]
+COPY server/start.mjs ./server/
+EXPOSE 8080
+CMD ["npm", "start"]

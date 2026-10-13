@@ -9,7 +9,8 @@
     "test": "tsx --test tests/*.test.ts",
     "test:ui": "playwright test",
     "preview": "vite preview --host 127.0.0.1",
-    "collect": "tsx server/collect.ts"
+    "collect": "tsx server/collect.ts",
+    "start": "node server/start.mjs"
   },
   "dependencies": {
     "three": "^0.180.0",

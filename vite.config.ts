@@ -38,7 +38,15 @@ export default defineConfig(async()=>{
   async configurePreviewServer(server){
    const proof=await boundedFile(resolve(server.config.root,server.config.build.outDir,'health.json'));
    if(JSON.stringify(proof)!==healthJSON(config.revision))throw Error('Runtime revision differs from built health proof');
-   const feed=attachFeed(server.httpServer,new FeedStore(config));server.middlewares.use(feed.middleware);},
+   const feed=attachFeed(server.httpServer,new FeedStore(config));
+   server.middlewares.use((req,res,next)=>{
+    if(req.url!=='/health'){next();return;}
+    res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
+    if(req.method!=='GET'){res.statusCode=405;res.end('{"error":"read-only"}');return;}
+    if(!process.env.MAO_PROJECT || !process.env.MAO_REVISION){res.statusCode=503;res.end('{"error":"runtime identity unavailable"}');return;}
+    res.end(JSON.stringify({project:process.env.MAO_PROJECT,revision:process.env.MAO_REVISION}));
+   });
+   server.middlewares.use(feed.middleware);},
   generateBundle(){this.emitFile({type:'asset',fileName:'health.json',source:healthJSON(config.revision)});}
  };
  return {plugins:[plugin]};

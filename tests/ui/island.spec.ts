@@ -13,8 +13,12 @@ async function expectSignRectangles(page:Page,width:number,height:number){
   }
 }
 // Only for the documented managed macOS bootstrap denial; ordinary runs execute all assertions.
+test.beforeEach(async({page})=>{
+ await page.route('**/api/snapshot',route=>route.fulfill({json:demo}));
+ await page.routeWebSocket('**/api/feed',ws=>ws.send(JSON.stringify({type:'snapshot',snapshot:demo})));
+});
 test.skip(process.env.ISLAND_BROWSER_HOST_BLOCKED==='1','Managed host denies Chromium bootstrap; operator validation required');
-for(const [width,height] of [[1280,800],[1440,900],[390,844]]){
+for(const [width,height] of [[1280,800],[1440,900],[360,800],[390,844]]){
  test(`full viewport island ${width}`,async({page},testInfo)=>{
   await page.setViewportSize({width,height});await page.goto('/');
   const canvas=page.locator('#scene canvas');await expect(canvas).toBeVisible();
