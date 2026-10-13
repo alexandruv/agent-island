@@ -8,10 +8,12 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {WebSocket} from 'ws';
 
-test('built Vite preview runs synthetic HTTP/WebSocket without ambient credentials',async()=>{
+test('built production start uses bundled demo origins and serves HTTP/WebSocket without ambient credentials',async()=>{
  const reservation=createServer();reservation.listen(0,'127.0.0.1');await once(reservation,'listening');const port=(reservation.address() as {port:number}).port;await new Promise<void>(r=>reservation.close(()=>r()));
  const dir=await mkdtemp(join(tmpdir(),'island-preview-'));const config=join(dir,'feed.json');const origin=`http://127.0.0.1:${port}`;
- await writeFile(config,JSON.stringify({mode:'demo',origins:[origin],revision:'unknown'}));
+ const bundled=JSON.parse(await readFile('tests/fixtures/demo-feed.json','utf8'));
+ assert.ok(bundled.origins.includes('http://127.0.0.1:8080'));
+ await writeFile(config,JSON.stringify(bundled));
  const child=spawn(process.execPath,['server/start.mjs'],{cwd:resolve('.'),env:{PATH:process.env.PATH,PORT:String(port),MAO_PROJECT:'test-island',MAO_REVISION:'test-revision',AGENT_ISLAND_FEED_CONFIG:config},stdio:['ignore','pipe','pipe']});
  let output='';child.stdout.on('data',b=>{output=(output+b).slice(-16384);});child.stderr.on('data',b=>{output=(output+b).slice(-16384);});
  try{
@@ -26,7 +28,7 @@ test('built Vite preview runs synthetic HTTP/WebSocket without ambient credentia
    const rejected=new WebSocket(origin.replace('http:','ws:')+path,'vite-hmr',{origin,handshakeTimeout:1000});
    const closed=new Promise(resolve=>rejected.once('close',resolve));const [error]=await once(rejected,'error');assert.doesNotMatch(error.message,/timed out/);await closed;
   }
-  const ws=new WebSocket(origin.replace('http:','ws:')+'/api/feed',{origin});const message=once(ws,'message');const [body]=await message;assert.equal(JSON.parse(body.toString()).snapshot.status.source,'demo');ws.close();await once(ws,'close');
+  const ws=new WebSocket(origin.replace('http:','ws:')+'/api/feed',{origin:'http://127.0.0.1:8080'});const message=once(ws,'message');const [body]=await message;assert.equal(JSON.parse(body.toString()).snapshot.status.source,'demo');ws.close();await once(ws,'close');
  }finally{const exit=once(child,'exit');child.kill('SIGTERM');await exit;await rm(dir,{recursive:true});}
 });
 

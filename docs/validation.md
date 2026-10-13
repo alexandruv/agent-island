@@ -175,3 +175,16 @@ No preview was deployed, and production is untouched.
 - OPERATOR PENDING: trusted collector/Mini Ops projection qualification, private authentication/TLS/origins, isolated Docker qualification, actual protected preview routes and phone rendering. Backend strips logs and serving/merge metadata; a separately reviewed trusted adapter is needed to supply those facts. No live configuration, installation, public route, deployment, merge or approval was activated. Production remains locked. Candidate PR is for independent review; canonical ready_for_human completion belongs to that review.
 
 Usage: see README production start instructions and collector-feed.md for explicit public demo versus private sanitized startup. `/health` is exact runtime identity; `/health.json` remains build proof; neither implies a healthy Mac. No phone-ready URL has been invented.
+
+## PR #18 authenticated review rework
+
+2026-10-13, existing `agent/issue-3` worktree; reviewed head `5e99a564c1b854a657bda953f8fc5fffd72caa7a`.
+
+- Fixed static-host 404/HTML fallback: explicit synthetic DEMO bypasses WebSocket connection/retry and live freshness expiry. Transport-backed feeds (including server demo) retain disconnect, stale/offline and reconnect handling.
+- Added the exact `http://127.0.0.1:8080` origin to the bundled demo configuration used by Docker and the README npm-start example. Existing origin enforcement is unchanged. The production-start integration test now copies that actual fixture into an external temporary file, verifies its 8080 allowlist entry, and connects with that Origin. It uses an ephemeral listening port to avoid host port conflicts; this is configuration/HTTP/WebSocket proof, not a Docker or rendered browser run.
+- PASS: `npm run build`, `npm test`: **44 passed / 0 failed / 0 skipped**. New 404 and HTML regressions advance three minutes with no WebSocket server and require online, non-stale DEMO with no connection attempts or repeated publication. Existing reconnect, source freshness, details and security tests pass. TypeScript/static build and exact MAO `/health` integration proof pass; the existing approximately 511 kB scene warning remains.
+- PASS: `git diff --check`.
+- HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui -- --workers=1`: **12 skipped / 0 passed / 0 failed**. No browser launch, assertions or fresh screenshots are claimed. The documented macOS permission denial was not retried or bypassed.
+- OPERATOR PENDING: permitted-host browser/phone checks with the skip variable unset, new screenshots and reference review, isolated Docker qualification, trusted collector/private feed protection, and verified preview routes remain required before publication. No installation, route activation, deployment, approval or merge occurred.
+
+Usage: README documents static DEMO operation and the exact loopback origin for the 8080 runtime. Copy the bundled configuration outside served directories and supply explicit MAO identity values as shown there. Alternate hosts/ports require an exact origin in that external configuration; server security checks remain intact.

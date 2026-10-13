@@ -60,3 +60,25 @@ test('client reconnect resumes snapshots, caches failures, and closes silent pee
   stop();const count=FakeSocket.instances.length;t.mock.timers.tick(120000);assert.equal(FakeSocket.instances.length,count);
  }finally{stop?.();globalThis.fetch=originalFetch;globalThis.WebSocket=originalSocket;t.mock.timers.reset();}
 });
+
+for(const fallback of ['404','HTML'] as const) test(`static ${fallback} fallback stays online demo without WebSocket retries or expiry`,async t=>{
+ const {connectFeed}=await import('../src/live-feed');
+ const originalFetch=globalThis.fetch,originalSocket=globalThis.WebSocket;
+ let connections=0,requests=0;
+ t.mock.timers.enable({apis:['Date','setTimeout','setInterval'],now});
+ globalThis.fetch=(async()=>{requests++;return fallback==='404'?new Response('Not found',{status:404}):new Response('<html>Static SPA</html>',{headers:{'content-type':'text/html'}});}) as typeof fetch;
+ globalThis.WebSocket=class {constructor(){connections++;throw Error('Static hosting has no WebSocket server');}} as unknown as typeof WebSocket;
+ const values:import('../src/contract').Snapshot[]=[];
+ let stop:(()=>void)|undefined;
+ try{
+  stop=connectFeed(s=>values.push(s),{protocol:'https:',host:'static.example'});
+  for(let i=0;i<20;i++)await Promise.resolve();
+  assert.deepEqual(values.at(-1)?.status,{source:'demo',online:true,stale:false});
+  assert.equal(values.at(-1)?.agents[0].id,demo.agents[0].id);
+  const count=values.length;
+  t.mock.timers.tick(180000);
+  assert.equal(connections,0);assert.equal(requests,1);assert.equal(values.length,count);
+  assert.deepEqual(values.at(-1)?.status,{source:'demo',online:true,stale:false});
+  stop();t.mock.timers.tick(120000);assert.equal(values.length,count);
+ }finally{stop?.();globalThis.fetch=originalFetch;globalThis.WebSocket=originalSocket;t.mock.timers.reset();}
+});

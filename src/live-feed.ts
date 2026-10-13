@@ -27,12 +27,12 @@ export function selectedDetails(s:Snapshot,id:string):{title:string;agent?:Snaps
  const issue=s.issues.find(i=>i.id===id);return issue?{title:`#${issue.number} ${issue.title}`,issue}:null;
 }
 export function connectFeed(update:(s:Snapshot)=>void, location:Pick<Location,'protocol'|'host'>=window.location) {
- let value:Snapshot={schemaVersion:1,project:{id:'agent-island',name:'Agent Island'},capturedAt:new Date().toISOString(),status:{source:'live',online:false,stale:true},agents:[],issues:[],previewUrl:null},received=0,attempt=0,socket:WebSocket|null=null,timer:ReturnType<typeof setTimeout>|undefined,stopped=false;
- const publish=()=>update(freshSnapshot(value,received,Date.now()));
+ let value:Snapshot={schemaVersion:1,project:{id:'agent-island',name:'Agent Island'},capturedAt:new Date().toISOString(),status:{source:'live',online:false,stale:true},agents:[],issues:[],previewUrl:null},received=0,attempt=0,socket:WebSocket|null=null,timer:ReturnType<typeof setTimeout>|undefined,stopped=false,staticDemo=false;
+ const publish=()=>update(staticDemo ? value : freshSnapshot(value,received,Date.now()));
  const fail=()=>{value=staleSnapshot(value);publish();};
  const accept=(raw:unknown)=>{value=parseSnapshot(raw);received=Date.now();publish();};
  const connect=()=>{
-  if(stopped)return;
+  if(stopped||staticDemo)return;
   socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/feed`);
   const current=socket;const started=Date.now();
   const handshake=setTimeout(()=>{fail();current.close();},15000);
@@ -42,8 +42,8 @@ export function connectFeed(update:(s:Snapshot)=>void, location:Pick<Location,'p
  };
  // Static hosting has no API: an absent route explicitly falls back to DEMO.
  const abort=new AbortController();const deadline=setTimeout(()=>abort.abort(),5000);
- void fetch('/api/snapshot',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(r.status===404 || (r.ok && !r.headers.get('content-type')?.includes('application/json'))){value=demo;received=Date.now();publish();return;}if(!r.ok)throw Error('Feed unavailable');accept(await r.json());}).catch(fail).finally(()=>{clearTimeout(deadline);connect();});
+ void fetch('/api/snapshot',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(r.status===404 || (r.ok && !r.headers.get('content-type')?.includes('application/json'))){if(stopped)return;staticDemo=true;value=demo;received=Date.now();publish();return;}if(!r.ok)throw Error('Feed unavailable');accept(await r.json());}).catch(fail).finally(()=>{clearTimeout(deadline);connect();});
  let published='';
- const expiry=setInterval(()=>{if(received && Date.now()-received>30000 && socket?.readyState===WebSocket.OPEN){fail();socket.close();}const next=JSON.stringify(freshSnapshot(value,received,Date.now()));if(next!==published){published=next;publish();}},1000);
+ const expiry=setInterval(()=>{if(staticDemo)return;if(received && Date.now()-received>30000 && socket?.readyState===WebSocket.OPEN){fail();socket.close();}const next=JSON.stringify(freshSnapshot(value,received,Date.now()));if(next!==published){published=next;publish();}},1000);
  return ()=>{stopped=true;abort.abort();clearTimeout(deadline);clearTimeout(timer);clearInterval(expiry);socket?.close();};
 }
