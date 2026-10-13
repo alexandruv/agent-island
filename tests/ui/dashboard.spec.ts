@@ -20,7 +20,7 @@ test('desktop and unavailable WebGL fallback',async({page})=>{
  const canvas=page.locator('canvas');const rect=(await canvas.boundingBox())!;
  const camera=new T.OrthographicCamera(-12*rect.width/rect.height,12*rect.width/rect.height,12,-12,.1,100);
  camera.position.set(16,19,24);camera.lookAt(0,0,0);camera.updateMatrixWorld();
- const targets=[{id:'demo-robot-3',position:new T.Vector3(-1.2,1.3,-2.5)},
+ const targets=[{id:'demo-robot-3',position:new T.Vector3(-1.2,1.3,-2.5)},{id:'demo-robot-4',position:new T.Vector3(2.8,1.3,-2.5)},
   ...createIssueCrates(demo).filter(c=>['demo-crate-5','demo-crate-7'].includes(c.userData.entityId)).map(c=>({id:c.userData.entityId,position:c.position}))];
  for(const target of targets){
   const p=target.position.clone().project(camera);
@@ -30,7 +30,9 @@ test('desktop and unavailable WebGL fallback',async({page})=>{
  }
  await page.screenshot({path:'docs/validation/desktop.png',fullPage:true});
  await page.addInitScript(()=>{HTMLCanvasElement.prototype.getContext=()=>null;});await page.reload();await expect(page.locator('#app')).toHaveClass(/lane-only/);await expect(page.locator('#demo-robot-1')).toBeVisible();
+ await expect(page.locator('#view')).toBeDisabled();await expect(page.locator('#view')).toHaveText('Lane view only');
+ await page.locator('#view').evaluate((button:HTMLButtonElement)=>button.click());await expect(page.locator('#app')).toHaveClass(/lane-only/);
 });
 test('reduced motion uses useful lanes',async({page})=>{
- await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await expect(page.locator('canvas')).toHaveCount(0);await page.locator('#demo-robot-1').click();await expect(page.getByRole('dialog')).toContainText('Latest sanitized log: Demo fixture');
+ await page.setViewportSize({width:1280,height:900});await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await expect(page.locator('canvas')).toHaveCount(0);await expect(page.locator('#view')).toBeDisabled();await expect(page.locator('#view')).toHaveText('Lane view only');await page.locator('#view').evaluate((button:HTMLButtonElement)=>button.click());await expect(page.locator('#app')).toHaveClass(/lane-only/);await page.locator('#demo-robot-1').click();await expect(page.getByRole('dialog')).toContainText('Latest sanitized log: Demo fixture');
 });

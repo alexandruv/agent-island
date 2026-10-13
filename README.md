@@ -11,7 +11,7 @@ npm test
 npm run dev
 ```
 
-Open the URL printed by Vite. Select the offline fixture to see cached/stale status and dimming. Click a robot/crate or focus its lane button and press Enter for details; Escape or Close dismisses and returns focus. “Use lane view” switches desktop presentation. Preview links are absent in this synthetic MVP; ready-for-human never means merged or serving.
+Open the URL printed by Vite. Select the offline fixture to see cached/stale status and dimming. Click a robot/crate or focus its lane button and press Enter for details; Escape or Close dismisses and returns focus. “Use lane view” switches desktop presentation when a renderer is available. Reduced motion, unavailable WebGL, and context loss keep the lanes visible with a disabled “Lane view only” button. Decorative signs do not consume robot/crate selection. Preview links are absent in this synthetic MVP; ready-for-human never means merged or serving.
 
 Each issue has a separate island crate bound to its stable ID, including both #105 and #107 at Rework. Select either crate to open that issue's details. Conflicting reworking/ready-for-human labels show Rework in both placement and detail text; needs-human takes priority over both.
 

@@ -1,3 +1,4 @@
+import { bindViewControl } from './view-control';
 import { demo, offlineDemo } from './fixture';
 import { stations, agentDetails, issueDetails, issueStation, issueState, contextText, symbols, statusText, actualPreviewUrl, type Snapshot } from './contract';
 import './style.css';
@@ -38,8 +39,8 @@ function render(){
 }
 render();
 root.querySelector('#fixture')!.addEventListener('change',e=>{snapshot=(e.target as HTMLSelectElement).value==='offline'?offlineDemo():demo;render();});
-root.querySelector('#view')!.addEventListener('click',()=>{root.classList.toggle('lane-only');root.querySelector('#view')!.textContent=root.classList.contains('lane-only')?'Use island view':'Use lane view';});
+const view=bindViewControl(root,root.querySelector<HTMLButtonElement>('#view')!);
 if(matchMedia('(min-width: 761px)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches){
- import('./scene').then(({drawIsland})=>drawIsland(root.querySelector('#scene')!,()=>snapshot)).catch(()=>fallback());
+ import('./scene').then(({drawIsland})=>{view.setAvailable(true);drawIsland(root.querySelector('#scene')!,()=>snapshot,fallback);}).catch(()=>fallback());
 }else fallback();
-function fallback(){root.classList.add('lane-only');root.querySelector('#scene')!.textContent='Island rendering unavailable. All stations and details are available in the lanes.';}
+function fallback(){view.setAvailable(false);root.querySelector('#scene')!.textContent='Island rendering unavailable. All stations and details are available in the lanes.';}

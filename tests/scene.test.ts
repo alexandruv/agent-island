@@ -42,3 +42,25 @@ test('each issue has its own named crate and stable-ID picking, including both R
  assert.equal(archived[0].userData.entityId,demo.issues[0].id);
  assert.equal(archived[0].position.x,-9.8);
 });
+
+test('complete scene signs cannot consume Reviewer, Builder or Rework crate selection',async()=>{
+ const {createIslandScene,islandCamera,pickEntity}=await import('../src/scene');
+ const {scene}=createIslandScene(()=>demo,()=>new T.SpriteMaterial());
+ const camera=islandCamera();
+ const reviewer=scene.children.find(o=>o.userData.entityId==='demo-robot-4')!;
+ const head=reviewer.children[1];
+ scene.updateMatrixWorld(true);
+ const position=head.getWorldPosition(new T.Vector3());
+ const sign=scene.children.find(o=>o.name==='5 Rework shed')!;
+ const ray=new T.Raycaster();const projected=position.clone().project(camera);
+ ray.setFromCamera(new T.Vector2(projected.x,projected.y),camera);
+ assert.equal(ray.intersectObject(sign).length,0,'Rework sign is clear of Reviewer head');
+ const targets=[{id:'demo-robot-4',position},{id:'demo-robot-3',position:new T.Vector3(-1.2,1.3,-2.5)},
+ ...createIssueCrates(demo).filter(c=>['demo-crate-5','demo-crate-7'].includes(c.userData.entityId)).map(c=>({id:c.userData.entityId,position:c.position}))];
+ for(const target of targets){const p=target.position.clone().project(camera);assert.equal(pickEntity(scene,camera,new T.Vector2(p.x,p.y)),target.id);}
+ // Deliberately put another decorative label directly in front of the head.
+ const overlay=new T.Sprite(new T.SpriteMaterial());overlay.position.copy(position).add(camera.position.clone().normalize().multiplyScalar(2));overlay.scale.set(3,3,1);scene.add(overlay);
+ scene.updateMatrixWorld(true);
+ assert.equal(ray.intersectObjects(scene.children,true)[0].object,overlay);
+ assert.equal(pickEntity(scene,camera,new T.Vector2(projected.x,projected.y)),'demo-robot-4');
+});
