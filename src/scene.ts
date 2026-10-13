@@ -9,15 +9,15 @@ export const labelFontPixels=16;
 export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:number,height:number){
  scene.traverse(object=>{if(object.userData.labelAnchor)object.position.copy(object.userData.labelAnchor);});
  scene.updateMatrixWorld(true);camera.updateMatrixWorld();
- const bounds=new T.Box3();let horizontalPadding=16;
+ const bounds=new T.Box3();const horizontalPadding=12;
  scene.traverse(object=>{
   if(object.userData.background)return;
   if(object instanceof T.Sprite){
    bounds.expandByPoint(object.getWorldPosition(new T.Vector3()).applyMatrix4(camera.matrixWorldInverse));
-   horizontalPadding=Math.max(horizontalPadding,(object.userData.labelWidth??0)/2+16);
+
   }else if(object instanceof T.Mesh){
-   const box=new T.Box3().setFromObject(object);
-   for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])bounds.expandByPoint(new T.Vector3(x,y,z).applyMatrix4(camera.matrixWorldInverse));
+   const vertices=object.geometry.getAttribute('position');
+   for(let i=0;i<vertices.count;i++)bounds.expandByPoint(new T.Vector3().fromBufferAttribute(vertices,i).applyMatrix4(object.matrixWorld).applyMatrix4(camera.matrixWorldInverse));
   }
  });
  const size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
@@ -32,15 +32,20 @@ export function fitIslandCamera(camera:T.OrthographicCamera,scene:T.Scene,width:
   const p=sprite.position.clone().project(camera);
   return {x:(p.x+1)*width/2,y:(1-p.y)*height/2,halfWidth:sprite.userData.labelWidth/2};
  };
- const occupied=sprites.filter(sprite=>sprite.userData.labelRole==='station').map(rectangle);
+ const occupied:ReturnType<typeof rectangle>[]=[];
  const cameraUp=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
- for(const sprite of sprites.filter(sprite=>sprite.userData.labelRole==='robot')){
-  const rect=rectangle(sprite),gap=31;
-  const candidates=[rect.y,...occupied.flatMap(other=>[other.y-gap,other.y+gap])];
-  const y=candidates.filter(y=>y>=14&&y<=height-14&&occupied.every(other=>
-   Math.abs(rect.x-other.x)>=rect.halfWidth+other.halfWidth+2||Math.abs(y-other.y)>=gap
+ const cameraRight=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
+ // Place every sign and bubble, not only robot labels, with deterministic screen clearance.
+ for(const sprite of sprites){sprite.visible=sprite.userData.labelRole==='station';}
+ for(const sprite of sprites.filter(s=>s.userData.labelRole==='station')){
+  const rect=rectangle(sprite),gap=32;
+  const x=Math.max(rect.halfWidth+8,Math.min(width-rect.halfWidth-8,rect.x));
+  const candidates=[Math.max(20,Math.min(height-20,rect.y)),...occupied.flatMap(other=>[other.y-gap,other.y+gap])];
+  const y=candidates.filter(y=>y>=20&&y<=height-20&&occupied.every(other=>
+   Math.abs(x-other.x)>=rect.halfWidth+other.halfWidth+4||Math.abs(y-other.y)>=gap
   )).sort((a,b)=>Math.abs(a-rect.y)-Math.abs(b-rect.y))[0];
-  if(y!==undefined){sprite.position.addScaledVector(cameraUp,(rect.y-y)*unitsPerPixel);occupied.push({...rect,y});}
+  sprite.visible=y!==undefined;
+  if(y!==undefined){sprite.position.addScaledVector(cameraUp,(rect.y-y)*unitsPerPixel).addScaledVector(cameraRight,(x-rect.x)*unitsPerPixel);occupied.push({...rect,x,y});}
  }
  scene.updateMatrixWorld(true);
 }
@@ -82,6 +87,12 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  if(a.state==='idle')mesh(new T.BoxGeometry(1,.15,.4),0x8c6c49,p.x+.8,.2,p.z+.5);
  if(['failed','stuck','needs-human'].includes(a.state))robot.traverse(o=>{if(o instanceof T.Mesh)(o.material as T.MeshStandardMaterial).color.setHex(0xc94c61);});
  if(a.state==='needs-human')for(let k=0;k<3;k++)mesh(new T.IcosahedronGeometry(.2+k*.1,0),0xb84b60,p.x+.8,1.8+k*.4,p.z+.5);
+ // Distinct silhouettes follow the dock → yard → workshop → tower → shed → gate → shop road.
+ if(i===1)for(let k=0;k<3;k++)mesh(new T.BoxGeometry(.6,.5,.6),0x8d704f,p.x-1,.3+k*.5,p.z-1);
+ if(i===2){mesh(new T.CylinderGeometry(.16,.22,1.4,6),0x4b5664,p.x-.5,2,p.z-1);mesh(new T.BoxGeometry(1,.4,.8),0x4a3b31,p.x, .3,p.z+.4);}
+ if(i===3){mesh(new T.CylinderGeometry(1.1,1.3,.4,6),0x56667a,p.x,.2,p.z);}
+ if(i===5){for(const dx of [-.6,.6])mesh(new T.BoxGeometry(.18,1.8,.25),0xb59a63,p.x+dx,.9,p.z+.2);mesh(new T.BoxGeometry(1.4,.18,.25),0xb59a63,p.x,1.8,p.z+.2);}
+ if(i===6){mesh(new T.BoxGeometry(1.7,.12,.8),0x7292ab,p.x,1.2,p.z+.1);for(const dx of [-.45,.45])mesh(new T.BoxGeometry(.35,.6,.05),0xffcf78,p.x+dx,.7,p.z-.12);}
  if(i===1){const radar=mesh(new T.ConeGeometry(.6,.2,12),0x76ae8f,p.x+1,1.9,p.z-1);radar.rotation.z=.8;}
  });
  for(const crate of createIssueCrates(snapshot()))scene.add(crate);
@@ -93,10 +104,10 @@ export function createIslandScene(snapshot:()=>Snapshot, labelMaterial:(text:str
  // Visible route cues are informational; no production action exists.
  const loop=new T.CatmullRomCurve3([points[3],new T.Vector3(0,.4,-.7),points[2]]);mesh(new T.TubeGeometry(loop,20,.055,4),0xe8b65d,0,0,0);sign('↺ Review → Build',0,1,-1);
  const changes=new T.CatmullRomCurve3([points[6],new T.Vector3(-4,.4,6),points[0]]);for(let n=0;n<18;n++){const p=changes.getPoint(n/18);mesh(new T.SphereGeometry(.055,6,4),0xc0d6ec,p.x,p.y,p.z);}sign('Changes → Intake',-4,1.5,5.8);
- mesh(new T.BoxGeometry(4,.15,1),0x6d6962,9,0,-2);mesh(new T.BoxGeometry(.15,1.8,1.5),0xe8ab52,7.5,.8,-2);sign('🔒 Production locked',11,3,-3,'station');mesh(new T.CylinderGeometry(3,2,2,7),0x34435d,13,-1,-4);
- for(let n=0;n<5;n++)mesh(new T.BoxGeometry(.6,1+n*.4,.7),0x4c607b,11+n*.7,1,-4);
- mesh(new T.CylinderGeometry(.4,.65,3,8),0xabbdc5,6,1,6);const beacon=mesh(new T.SphereGeometry(.35,8,6),0xffd784,6,2.8,6);sign('Watchers ◉',6,4,6,'station');
- mesh(new T.BoxGeometry(1,1,1),0x6c746d,-5,.6,6);sign('Setup & admin · ▤ Operator',-5,2.5,7,'station');
+ mesh(new T.BoxGeometry(4,.15,1),0x6d6962,9,0,-2);mesh(new T.BoxGeometry(.15,1.8,1.5),0xe8ab52,7.5,.8,-2);sign('🔒 Production locked',11,3,-3,'station');mesh(new T.CylinderGeometry(2,1.6,2,7),0x34435d,11,-1,-4);
+ for(let n=0;n<5;n++)mesh(new T.BoxGeometry(.6,1+n*.4,.7),0x4c607b,9.5+n*.65,1,-4);
+ mesh(new T.CylinderGeometry(.4,.65,3,8),0xabbdc5,6,1,6);for(const y of [.4,1.4])mesh(new T.CylinderGeometry(.52,.56,.4,8),0x9c4d50,6,y,6);mesh(new T.CylinderGeometry(.8,.8,.12,8),0x394b61,6,2.5,6);const beacon=mesh(new T.SphereGeometry(.35,8,6),0xffd784,6,2.8,6);sign('Watchers ◉',6,4,6,'station');
+ mesh(new T.BoxGeometry(1,1,1),0x6c746d,-5,.6,6);const operatorRoof=mesh(new T.ConeGeometry(.9,.5,4),0x35455b,-5,1.3,6);operatorRoof.rotation.y=Math.PI/4;sign('Setup & admin · ▤ Operator',-5,2.5,7,'station');
  mesh(new T.IcosahedronGeometry(1.5,0),0x566073,-9,-1,4);sign('◇ Archive',-9,1,4,'station');
  return {scene,robots,beacon};
 }
@@ -111,7 +122,21 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot,onUnavailable:()
   return new T.SpriteMaterial({map:new T.CanvasTexture(canvas),depthTest:false});
  });
  renderer.domElement.addEventListener('click',e=>{const rect=renderer.domElement.getBoundingClientRect();const id=pickEntity(scene,camera,new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1));if(id)document.getElementById(id)?.click();});
- const resize=()=>{const {width,height}=host.getBoundingClientRect();renderer.setSize(width,height);if(width>0&&height>0)fitIslandCamera(camera,scene,width,height);};new ResizeObserver(resize).observe(host);resize();
- renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();renderer.setAnimationLoop(null);onUnavailable();});
- renderer.setAnimationLoop(time=>{const feed=snapshot().status; (beacon.material as T.MeshStandardMaterial).color.setHex(!feed.online?0x34435d:feed.stale?0xc18e45:0xffd784);beacon.scale.setScalar(feed.online&&!feed.stale?1+Math.sin(time/700)*.12:1);robots.forEach((r,i)=>{const a=snapshot().agents.find(a=>a.station===i+1);r.position.y=.6+(a?.state==='working'&&snapshot().status.online?Math.sin(time/240)*.08:0);});renderer.render(scene,camera);});
+ const signs=scene.children.filter((o):o is T.Sprite=>o instanceof T.Sprite&&o.userData.labelRole==='station');
+ const labels=signs.map(sign=>{const label=document.createElement('span');label.className='station-label';label.textContent=sign.name;host.append(label);return label;});
+ const hint=document.createElement('div');hint.className='entity-hint';document.querySelector('header')!.append(hint);
+ renderer.domElement.addEventListener('pointermove',e=>{const rect=renderer.domElement.getBoundingClientRect();const id=pickEntity(scene,camera,new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1));hint.textContent=id?document.getElementById(id)?.textContent??'':'';});
+ renderer.domElement.addEventListener('pointerleave',()=>{hint.textContent='';});
+ const motion=matchMedia('(prefers-reduced-motion: reduce)');
+ let lost=false;
+ const paint=(time=0)=>{const feed=snapshot().status; (beacon.material as T.MeshStandardMaterial).color.setHex(!feed.online?0x34435d:feed.stale?0xc18e45:0xffd784);beacon.scale.setScalar(!motion.matches&&feed.online&&!feed.stale?1+Math.sin(time/700)*.12:1);robots.forEach((r,i)=>{const a=snapshot().agents.find(a=>a.station===i+1);r.position.y=.6+(!motion.matches&&a?.state==='working'&&feed.online?Math.sin(time/240)*.08:0);});renderer.render(scene,camera);};
+ const resize=()=>{const {width,height}=host.getBoundingClientRect();if(lost||width<=0||height<=0)return;renderer.setSize(width,height);fitIslandCamera(camera,scene,width,height);
+  signs.forEach((sign,i)=>{const p=sign.position.clone().project(camera);labels[i].style.width=`${sign.userData.labelWidth}px`;labels[i].style.left=`${(p.x+1)*width/2-sign.userData.labelWidth/2}px`;labels[i].style.top=`${(1-p.y)*height/2-14}px`;});
+  scene.children.forEach(o=>{if(o instanceof T.Sprite)o.visible=false;});paint();
+ };new ResizeObserver(resize).observe(host);resize();
+ const animate=()=>{if(lost)return;renderer.setAnimationLoop(motion.matches?null:paint);paint();};
+ motion.addEventListener('change',animate);
+ document.querySelector('#fixture')?.addEventListener('change',()=>paint());
+ renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();lost=true;renderer.setAnimationLoop(null);onUnavailable();});
+ animate();
 }

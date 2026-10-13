@@ -73,6 +73,7 @@ test('complete scene signs cannot consume Reviewer, Builder or Rework crate sele
   scene.traverse(object=>{
    if(object.userData.background)return;
    if(object instanceof T.Sprite){
+    if(!object.visible)return;
     const p=object.position.clone().project(camera);
     const halfWidth=object.scale.x/(camera.right-camera.left),halfHeight=object.scale.y/(camera.top-camera.bottom);
     assert.ok(Math.abs(p.x)+halfWidth<=1.00001,`${width}: ${object.name} horizontal bounds`);
@@ -81,9 +82,9 @@ test('complete scene signs cannot consume Reviewer, Builder or Rework crate sele
     assert.ok(Math.abs(renderedHeight*32/56-labelFontPixels)<.00001,`${object.name} font must not shrink`);
     assert.equal(labelFontPixels,16);
    }else if(object instanceof T.Mesh){
-    const box=new T.Box3().setFromObject(object);
-    for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
-     const p=new T.Vector3(x,y,z).project(camera);assert.ok(Math.abs(p.x)<=1.00001&&Math.abs(p.y)<=1.00001,`${width}: geometry cropped`);
+    const vertices=object.geometry.getAttribute('position');
+    for(let i=0;i<vertices.count;i++){
+     const p=new T.Vector3().fromBufferAttribute(vertices,i).applyMatrix4(object.matrixWorld).project(camera);assert.ok(Math.abs(p.x)<=1.00001&&Math.abs(p.y)<=1.00001,`${width}: geometry cropped`);
     }
    }
   });
@@ -91,7 +92,7 @@ test('complete scene signs cannot consume Reviewer, Builder or Rework crate sele
 });
 
 
-test('every station sign stays clear of every robot and log label at fitted desktop widths',async()=>{
+test('all station signs stay visible and mutually clear at phone and desktop widths',async()=>{
  const {createIslandScene,islandCamera,fitIslandCamera}=await import('../src/scene');
  const {stations}=await import('../src/contract');
  const {scene}=createIslandScene(()=>demo,()=>new T.SpriteMaterial());
@@ -102,8 +103,9 @@ test('every station sign stays clear of every robot and log label at fitted desk
  assert.equal(signs.length,11);
  assert.equal(labels.length,9);
  // Sweep the supported scene range, then repeat the acceptance widths to check resize stability.
- for(const width of [...Array.from({length:417},(_,index)=>608+index),1024,900,608]){
-  const height=700,camera=islandCamera();fitIslandCamera(camera,scene,width,height);
+ for(const width of [...Array.from({length:1051},(_,index)=>390+index),1280,1440,390]){
+  const height=width<=600?772:728,camera=islandCamera();fitIslandCamera(camera,scene,width,height);
+  assert.ok(signs.every(sign=>sign.visible));assert.ok(labels.every(label=>!label.visible));
   function rectangle(sprite:T.Sprite){
    const center=sprite.getWorldPosition(new T.Vector3()).project(camera);
    const halfWidth=sprite.scale.x/(camera.right-camera.left)*width/2;
@@ -111,10 +113,23 @@ test('every station sign stays clear of every robot and log label at fitted desk
    const x=(center.x+1)*width/2,y=(1-center.y)*height/2;
    return {left:x-halfWidth,right:x+halfWidth,top:y-halfHeight,bottom:y+halfHeight};
   }
-  for(const sign of signs)for(const label of labels){
+  for(const [index,sign] of signs.entries())for(const label of signs.slice(index+1)){
    const a=rectangle(sign),b=rectangle(label);
    const clearance=Math.max(b.left-a.right,a.left-b.right,b.top-a.bottom,a.top-b.bottom);
    assert.ok(clearance>=2,`${width}px: ${sign.name} overlaps or lacks clearance from ${label.name} (${clearance.toFixed(2)}px)`);
   }
+ }
+});
+
+
+test('main island fills at least sixty percent of canvas width with support landmarks fitted',async()=>{
+ const {createIslandScene,islandCamera,fitIslandCamera}=await import('../src/scene');
+ for(const [width,height] of [[1280,728],[1440,828],[390,772]]){
+  const {scene}=createIslandScene(()=>demo,()=>new T.SpriteMaterial()),camera=islandCamera();fitIslandCamera(camera,scene,width,height);
+  const island=scene.children.find(o=>o instanceof T.Mesh&&o.geometry instanceof T.CylinderGeometry)!;
+  assert.ok(island instanceof T.Mesh);
+  const vertices=island.geometry.getAttribute('position'),xs:number[]=[];
+  for(let i=0;i<vertices.count;i++)xs.push(new T.Vector3().fromBufferAttribute(vertices,i).applyMatrix4(island.matrixWorld).project(camera).x);
+  assert.ok((Math.max(...xs)-Math.min(...xs))/2>=.6,`${width}: island too small`);
  }
 });
