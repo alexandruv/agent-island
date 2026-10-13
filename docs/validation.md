@@ -82,3 +82,13 @@ No preview was deployed, and production is untouched.
 - PASS: collector Mini Ops unavailable/error/invalid fixtures with null heartbeats retain their precise failure state through FeedStore at fresh, stale and offline capture ages, and through served HTTP and WebSocket snapshots. Aggregate health stays offline/stale. Existing successful-heartbeat expiry, exact health bytes and visual tests remain passing.
 - PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. NOT RUN: browser assertions retain the documented macOS launch denial; discovery is not execution. Real CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were altered.
 - Usage: `npm run build && npm test`. Place feed configuration and snapshot inputs outside all served directories. For a synthetic preview, copy `tests/fixtures/demo-feed.json` to `/tmp/agent-island-demo-feed.json`, then run `AGENT_ISLAND_FEED_CONFIG=/tmp/agent-island-demo-feed.json npm run preview`. The Docker example now places its synthetic configuration outside `/app`; Docker execution remains untested.
+
+
+## Issue #15 closed Paseo lifecycle correction
+
+2026-10-13, assigned `agent/issue-15` worktree, based on PR #12 head `d4db722b8746a7939bb13ddf46fc7d26e954d12b`.
+
+- PASS: `npm ci --cache /tmp/agent-island-issue-15-npm-cache`, `npm run build`, `npm test` (34 passed, zero failures/skips), and `git diff --check`. The default npm cache was outside writable roots; a temporary writable cache was used without changing permissions. The existing approximately 508 kB scene chunk warning remains.
+- PASS: realistic Paseo `closed` fixtures reach Archive without a matching Mini Ops row, with missing/invalid data, unavailable data, source errors and station overrides. Unsupported `archived`, `initializing` and other unknown statuses remain unknown. Existing source failure, isolation and transport tests remain passing without secrets or live services.
+- PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. Browser assertions were NOT RUN; the documented host launch denial remains. Real CLI/auth/Mini Ops qualification, private access/TLS/proxy checks, browser/phone, optional Docker and deployment validation remain operator-only and pending.
+- Usage: `npm ci && npm run build && npm test`; use a writable npm cache if the host default is restricted. Synthetic preview instructions and lifecycle mapping are in [collector-feed.md](collector-feed.md). No new configuration is required for closed agents.

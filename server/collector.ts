@@ -27,7 +27,7 @@ export function runCommand(binary:string, args:readonly string[], cwd:string):Pr
  }));
 }
 function paseoState(status:unknown):AgentState {
- switch(status) {case 'running':return 'working';case 'idle':return 'idle';case 'error':return 'failed';case 'archived':return 'closed';default:return 'unknown';}
+ switch(status) {case 'running':return 'working';case 'idle':return 'idle';case 'error':return 'failed';case 'closed':return 'closed';default:return 'unknown';}
 }
 const labels = new Set(['agent:queued','agent:working','agent:under-review','agent:reworking','agent:ready-for-human','agent:needs-human']);
 const states = new Set<AgentState>(['working','idle','waiting-permit','failed','stuck','needs-human','closed','unknown']);

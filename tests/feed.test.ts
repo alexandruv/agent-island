@@ -11,7 +11,7 @@ import {FeedStore,attachFeed,sanitizeFeed,healthJSON,validateFeedConfig} from '.
 const now=Date.parse('2026-10-13T15:00:00Z');
 const config:CollectorConfig={repo:'alexandruv/agent-island',allowedRepos:['alexandruv/agent-island'],cwd:'/synthetic/project',agents:[{id:'builder',name:'Builder',station:3},{id:'idle',name:'Scout',station:2},{id:'error',name:'Fixer',station:5},{id:'closed',name:'Retired',station:3}]};
 const hostile='ghp_FAKE_TEST_SECRET /Users/fake/credentials $(touch /tmp/never) <script>secret</script>';
-const agents=[{id:'builder',status:'running',name:hostile,cwd:hostile},{id:'idle',status:'idle'},{id:'error',status:'error'},{id:'closed',status:'archived'},{id:'other-project',status:'running',name:hostile}];
+const agents=[{id:'builder',status:'running',name:hostile,cwd:hostile},{id:'idle',status:'idle'},{id:'error',status:'error'},{id:'closed',status:'closed'},{id:'other-project',status:'running',name:hostile}];
 const issues=[{number:10,labels:[{name:'agent:working'},{name:hostile},{name:'merged'}],closedAt:null,title:hostile,body:hostile}];
 function mini(heartbeat=now,context:unknown=42){return {projects:{[config.repo]:{heartbeatAt:new Date(heartbeat).toISOString(),agents:[{id:'builder',state:'stuck',contextPercent:context,command:hostile,latestLog:hostile}],credentials:hostile},other:{secret:hostile}},approvals:hostile};}
 function collector(permit=true,heartbeat=now,context:unknown=42){return new Collector(config,async(binary,args)=>binary==='gh'?issues:args[0]==='permit'?permit?[{agentId:'builder',description:hostile}]:[]:agents,async()=>mini(heartbeat,context),()=>now);}
@@ -120,7 +120,7 @@ test('real subprocess fixtures enforce output and timeout bounds without leaking
 });
 
  test('hostile and non-string Paseo statuses remain serializable unknown agents',async()=>{
-  for(const status of ['constructor','__proto__','toString','hasOwnProperty',{},null,42]){
+  for(const status of ['archived','initializing','unsupported','constructor','__proto__','toString','hasOwnProperty',{},null,42]){
    const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'builder',status}],async()=>({projects:{[config.repo]:{heartbeatAt:new Date(now).toISOString()}}}),()=>now);
    const feed=await c.collect();assert.equal(feed.sources.paseo,'ok');assert.equal(feed.agents[0].state,'unknown');
    assert.equal(sanitizeFeed(JSON.parse(JSON.stringify(feed)),now).agents[0].state,'unknown');
@@ -175,12 +175,22 @@ test('real subprocess fixtures enforce output and timeout bounds without leaking
  test('closed agents move from active stations to Archive after all state resolution',async()=>{
   const project=(rows?:unknown)=>({projects:{[config.repo]:{heartbeatAt:new Date(now).toISOString(),...(rows===undefined?{}:{agents:rows})}}});
   for(const read of [async()=>project(),async()=>project([]),async()=>project([{id:'closed',station:5}]),async()=>({invalid:true}),async()=>{throw Error('fixture failure');}]) {
-   const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'closed',status:'archived'}],read,()=>now);
+   const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'closed',status:'closed'}],read,()=>now);
    const feed=await c.collect();assert.equal(feed.agents[0].state,'closed');assert.equal(feed.agents[0].station,'archive');
   }
   const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'builder',status:'running'}],async()=>project([{id:'builder',state:'closed',station:4}]),()=>now);
   assert.equal((await c.collect()).agents[0].station,'archive');
  });
+
+test('Paseo closed agents reach Archive with missing or unavailable Mini Ops data',async()=>{
+ for(const source of ['invalid','unavailable'] as const){
+  const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'closed',status:'closed'}],
+   async()=>{if(source==='invalid')return undefined;throw Object.assign(Error('fixture missing file'),{code:'ENOENT'});},()=>now);
+  const feed=await c.collect();assert.equal(feed.sources.miniOps,source);
+  assert.equal(feed.agents[0].state,'closed');assert.equal(feed.agents[0].station,'archive');
+  assert.equal(feed.status.online,false);assert.equal(feed.status.stale,true);
+ }
+});
 
 test('Mini Ops failures survive FeedStore freshness, HTTP and WebSocket snapshots',async()=>{
  const {SourceError}=await import('../server/boundary');
