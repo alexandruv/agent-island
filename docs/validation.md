@@ -74,3 +74,13 @@ No preview was deployed, and production is untouched.
 - HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` rebuilt and served this candidate and reported eight skipped browser tests, zero executed browser assertions, zero browser passes, and no screenshots. The previously documented macOS Chromium bootstrap denial in [browser-host-block.log](browser-host-block.log) remains applicable; no denied launch was retried or security controls changed.
 - PENDING: the rendered acceptance finding is still unresolved. On a permitted Chromium host, run `npm run test:ui` without the host-block variable against this candidate and attach `test-results/island-1280.png`, `test-results/island-1440.png`, and `test-results/island-390.png` to existing PR #9. Browser acceptance, reference comparison and independent operator validation remain required before deployment. Skipped tests and CPU projection checks are not rendered acceptance evidence.
 - Usage: resizing only the window height now refits the island as well as resizing its width. Short-window compact rows and minimum-height scrolling retain readable signs; Lane view and read-only behavior are unchanged.
+
+## PR #9 rendered acceptance review follow-up
+
+2026-10-13, existing `agent/issue-8` worktree, reviewed implementation head `61ebe5b8ff8cb1d4b761b50b6eaf38c7ba4381b1`.
+
+- PASS: reran `npm run build` and `npm test`: 16 Node tests passed, zero failures and zero skips. The approximately 511 kB scene chunk warning remains.
+- HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` rebuilt and served `dist`, then reported eight skipped tests, zero browser passes and no screenshots. The documented Chromium bootstrap permission denial still applies on this restricted host; no denied launch was retried or security control changed.
+- The structured finding requests rendered evidence, not another CPU regression. Existing browser tests already cover all three acceptance viewports, screenshot artifacts and rendered sign rectangles. No additional implementation or redundant test was added for this finding.
+- Added explicit README instructions to associate an authorized rendered run with the current PR head, require eight passes with zero skips, compare screenshots against the reference and upload all three PNGs to existing PR #9. Local Playwright attachments do not satisfy PR attachment requirements.
+- UNRESOLVED: no permitted Chromium execution host is available in this invocation. No rendered screenshots, reference comparison or screenshot attachments can be claimed. The finding and operator-only validation remain pending before deployment.
