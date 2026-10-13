@@ -1,6 +1,6 @@
 # Agent Island
 
-Read-only, synthetic visual MVP. Original three.js geometry evokes the operator's low-poly evening island reference; accessible station lanes provide the same details in a slide-over and without WebGL. Every snapshot is visibly **DEMO**. No host collection, secrets, action APIs, tracking, approvals or production controls exist. The Production bridge is permanently locked.
+Read-only, synthetic visual MVP. Original three.js geometry evokes the operator's low-poly evening island reference; accessible station lanes provide the same details in a slide-over and without WebGL, at 360px, or with reduced motion. Every visual UI snapshot is visibly **DEMO**. The optional read-only collector/feed is separate from the synthetic visual UI; no action APIs, tracking, approvals or production controls exist. The Production bridge is permanently locked.
 
 Use Node **22.12+** (Node 22 LTS recommended; validated here on 26.10.0), with npm and the committed lockfile:
 
@@ -17,9 +17,9 @@ Reduced motion keeps the island and disables its animation loop, including when 
 
 Each issue has a separate island crate bound to its stable ID, including both #105 and #107 at Rework. Select either crate to open that issue's details. Conflicting reworking/ready-for-human labels show Rework in both placement and detail text; needs-human takes priority over both.
 
-Cloudflare Pages settings: **build command `npm ci && npm run build`**, **output directory `dist`**, root directory repository root, Node 22.12 or newer. `dist/index.html` and local `/assets/` files serve from the domain root. No server runtime, Functions, Worker, environment secrets or live service is needed. `npm run preview` is a local-only static verification server. Hosting configuration/deployment belongs to the operator; no deployment or verified preview URL is provided here.
+Cloudflare Pages settings: **build command `npm ci && npm run build`**, **output directory `dist`**, root directory repository root, Node 22.12 or newer. `dist/index.html` and local `/assets/` files serve from the domain root. No server runtime, Functions, Worker, environment secrets or live service is needed for the static synthetic UI. The optional local Vite dev/preview feed routes require a Node server; static Pages does not supply WebSockets. `npm run preview` is a loopback verification server with optional read-only feed routes. Hosting configuration/deployment belongs to the operator; no deployment or verified preview URL is provided here.
 
-The versioned normalized snapshot interface is in [src/contract.ts](src/contract.ts), documented in [docs/snapshot.md](docs/snapshot.md). [src/fixture.ts](src/fixture.ts) supplies only synthetic stable IDs. Later issues #2/#3 own collection and integration.
+The versioned normalized snapshot interface is in [src/contract.ts](src/contract.ts), documented in [docs/snapshot.md](docs/snapshot.md). [src/fixture.ts](src/fixture.ts) supplies only synthetic stable IDs. Issue #10 adds the read-only collector/feed; issue #3 owns live UI integration. See [collector/feed setup and privacy](docs/collector-feed.md) for startup configuration, failure semantics and operator qualification. The feed defaults to unavailable, never silently synthetic.
 
 `npm test` runs contract/state, detail content, scene geometry/picking, framing, fixed-size sign clearance across 390–1440px, island occupancy, view control and built static asset checks; run the build first. Browser acceptance uses headless Chromium with `--use-gl=swiftshader`, builds automatically and serves `dist`:
 

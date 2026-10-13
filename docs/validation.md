@@ -43,6 +43,56 @@ No preview was deployed, and production is untouched.
 - BLOCKED / NOT RUN: browser assertions and screenshots remain pending under the documented macOS launch denial (`bootstrap_check_in ... Permission denied (1100)`), with evidence in [browser-host-block.log](browser-host-block.log). No denied launch was retried or security control changed. CPU projection tests and browser discovery do not establish rendered visual success. Operator browser/phone validation remains pending before deployment.
 - Usage: `npm ci && npm run build && npm test`, then `npm run dev` or local `npm run preview`. In the desktop island view, robot/log labels automatically clear station signs as the scene resizes; lane fallback and the permanently locked Production bridge are preserved.
 
+## Issue #10 collector and feed
+
+2026-10-13, assigned `agent/issue-10` worktree only; baseline is merged PR #7 (`3220218`). No additional worktree or agents were created.
+
+- PASS: TypeScript and Vite build; Node suite passes 26 tests with zero failures/skips. New tests cover fixed read-only argv/cwd and repository/agent allowlists, permit priority, working/idle/failure/archive/context unknowns, independent errors versus successful empty sources, stale/offline heartbeats, single flight, hostile strings and fabricated secrets, large-file rejection, real subprocess output/timeout bounds, sanitized export reconstruction and cached retention, WebSocket origin/reconnect rate limits/heartbeats/dead peers/oversized frames, and exact health bytes. Existing visual contract/geometry/static checks remain passing. The pre-existing approximately 508 kB scene chunk warning remains.
+- PASS: built Vite preview is started by the suite with a minimal environment and no ambient GitHub/Paseo/Cloudflare credentials; its root page, initial demo snapshot, WebSocket snapshot and health bytes are verified. No live host data or real secrets are used by tests. Startup config explicitly marks this run demo.
+- PASS: `npm run test:ui -- --list` discovers the existing four browser tests. This is discovery, not a browser execution pass.
+- NOT RUN / OPERATOR PENDING: opt-in browser/phone assertions retain the documented macOS browser startup denial. No denied launch was retried or security control changed. Optional Docker build/run, real CLI/auth/source and Mini Ops schema qualification, private authentication/TLS/proxy checks and deployment remain operator-only. No host service, credentials, permissions, orchestrator worker changes, merge or deployment were performed.
+- LIMITATION: baseline contains no health JSON/revision endpoint; the new exact `/health.json` proof is tested against its built artifact. Live UI rendering remains #3. Real Mini Ops schema compatibility has not been claimed; unsupported state yields invalid/offline/stale as documented in [collector-feed.md](collector-feed.md).
+
+## PR #12 authenticated review rework
+
+2026-10-13, assigned `agent/issue-10` worktree, reviewed head `4f4716e`.
+
+- PASS: `npm run build`, `npm test` (29 tests, zero failures/skips), and `git diff --check`. The existing approximately 508 kB scene chunk warning remains.
+- PASS: unmatched WebSocket paths close promptly after 35 repeated attempts without blocking legitimate feed connections; an explicitly owned development HMR request is handed off. Real built preview rejects unmatched paths and Vite-protocol requests at `/`, with no ambient credentials. Exact health artifact and existing isolation/transport checks remain passing.
+- PASS: a real fixture child ignores SIGTERM, is killed at the five-second SIGKILL deadline, and no longer exists; collection reports timeout and the next single-flight poll succeeds. Hostile inherited-property names and non-string statuses serialize as unknown agents and pass feed sanitization.
+- PASS: `npm run test:ui -- --list` discovers four opt-in tests. NOT RUN: browser assertions retain the documented host launch denial; discovery is not execution. Live CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were altered or host services activated.
+- Usage remains `npm run build && npm test`, then configured synthetic `npm run preview`; hard timeout, unknown status and development-only HMR handoff behavior are documented in [collector-feed.md](collector-feed.md).
+
+## PR #12 second authenticated review rework
+
+2026-10-13, assigned `agent/issue-10` worktree, reviewed head `ea0fb468ffd185fe3d1a70b8014bddfdc072682a`.
+
+- PASS: `npm run build`, `npm test` (31 passed, zero failures/skips), and `git diff --check`. The existing approximately 508 kB scene chunk warning remains.
+- PASS: malformed non-string agent IDs, including two distinct arrays containing the same valid ID, are rejected before regex coercion; duplicate primitive string IDs remain rejected. Closed agents configured at station 3 move to Archive without a matching Mini Ops row, with invalid or failing Mini Ops data, and after a Mini Ops station override. Mini Ops-resolved closed state is also covered.
+- PASS: fixture-backed built preview HTTP/WebSocket and exact health proof, bounded subprocesses, transport isolation and existing visual/geometry/static checks remain passing.
+- PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. NOT RUN: browser assertions retain the documented macOS startup denial; discovery is not execution. Real CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were changed.
+- Usage: `npm run build && npm test`, then `AGENT_ISLAND_FEED_CONFIG="$PWD/tests/fixtures/demo-feed.json" npm run preview` for a synthetic feed. String ID validation and post-resolution Archive placement are documented in [collector-feed.md](collector-feed.md).
+
+## PR #12 third authenticated review rework
+
+2026-10-13, assigned `agent/issue-10` worktree, reviewed head `b5948e6bf9e128e70478d67277983a009c8df04c`.
+
+- PASS: `npm run build`, `npm test` (33 passed, zero failures/skips), and `git diff --check`. The existing approximately 508 kB scene chunk warning remains.
+- PASS: real built preview rejects snapshot inputs inside `dist`, symlink aliases to those inputs, missing future inputs beneath a symlinked served directory, and configuration files inside served output. Tests use fabricated hostile extra fields and a minimal environment without ambient credentials. With inputs outside served directories, HTTP snapshots omit those fields, direct-file HTTP requests do not disclose them, and disallowed API origins remain forbidden. Startup checks also cover the Vite root, public directory, customized build output and development filesystem allow directories.
+- PASS: collector Mini Ops unavailable/error/invalid fixtures with null heartbeats retain their precise failure state through FeedStore at fresh, stale and offline capture ages, and through served HTTP and WebSocket snapshots. Aggregate health stays offline/stale. Existing successful-heartbeat expiry, exact health bytes and visual tests remain passing.
+- PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. NOT RUN: browser assertions retain the documented macOS launch denial; discovery is not execution. Real CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were altered.
+- Usage: `npm run build && npm test`. Place feed configuration and snapshot inputs outside all served directories. For a synthetic preview, copy `tests/fixtures/demo-feed.json` to `/tmp/agent-island-demo-feed.json`, then run `AGENT_ISLAND_FEED_CONFIG=/tmp/agent-island-demo-feed.json npm run preview`. The Docker example now places its synthetic configuration outside `/app`; Docker execution remains untested.
+
+
+## Issue #15 closed Paseo lifecycle correction
+
+2026-10-13, assigned `agent/issue-15` worktree, based on PR #12 head `d4db722b8746a7939bb13ddf46fc7d26e954d12b`.
+
+- PASS: `npm ci --cache /tmp/agent-island-issue-15-npm-cache`, `npm run build`, `npm test` (34 passed, zero failures/skips), and `git diff --check`. The default npm cache was outside writable roots; a temporary writable cache was used without changing permissions. The existing approximately 508 kB scene chunk warning remains.
+- PASS: realistic Paseo `closed` fixtures reach Archive without a matching Mini Ops row, with missing/invalid data, unavailable data, source errors and station overrides. Unsupported `archived`, `initializing` and other unknown statuses remain unknown. Existing source failure, isolation and transport tests remain passing without secrets or live services.
+- PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. Browser assertions were NOT RUN; the documented host launch denial remains. Real CLI/auth/Mini Ops qualification, private access/TLS/proxy checks, browser/phone, optional Docker and deployment validation remain operator-only and pending.
+- Usage: `npm ci && npm run build && npm test`; use a writable npm cache if the host default is restricted. Synthetic preview instructions and lifecycle mapping are in [collector-feed.md](collector-feed.md). No new configuration is required for closed agents.
+
 ## Issue #8 full viewport island
 
 2026-10-13, assigned `agent/issue-8` worktree only.
