@@ -66,10 +66,10 @@ export class Collector {
     const a=feed.agents.find(a=>typeof row.id==='string'&&a.id===agentId(row.id)); if(!a) continue;
     if(states.has(row.state as AgentState) && a.state!=='waiting-permit') a.state=row.state as AgentState;
     if([1,2,3,4,5,6,7,'archive'].includes(row.station as Station)) a.station=row.station as Station;
-    if(a.state==='closed') a.station='archive';
     a.contextPercent=typeof row.contextPercent==='number'&&Number.isFinite(row.contextPercent)&&row.contextPercent>=0&&row.contextPercent<=100?row.contextPercent:null;
    }
   });
+  for(const a of feed.agents) if(a.state==='closed') a.station='archive';
   feed.status={source:'live',online:feed.sources.paseo==='ok'&&['ok','stale'].includes(feed.sources.miniOps),stale:Object.values(feed.sources).some(s=>s!=='ok')};
   return feed;
  }

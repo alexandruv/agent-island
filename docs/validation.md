@@ -62,3 +62,13 @@ No preview was deployed, and production is untouched.
 - PASS: a real fixture child ignores SIGTERM, is killed at the five-second SIGKILL deadline, and no longer exists; collection reports timeout and the next single-flight poll succeeds. Hostile inherited-property names and non-string statuses serialize as unknown agents and pass feed sanitization.
 - PASS: `npm run test:ui -- --list` discovers four opt-in tests. NOT RUN: browser assertions retain the documented host launch denial; discovery is not execution. Live CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were altered or host services activated.
 - Usage remains `npm run build && npm test`, then configured synthetic `npm run preview`; hard timeout, unknown status and development-only HMR handoff behavior are documented in [collector-feed.md](collector-feed.md).
+
+## PR #12 second authenticated review rework
+
+2026-10-13, assigned `agent/issue-10` worktree, reviewed head `ea0fb468ffd185fe3d1a70b8014bddfdc072682a`.
+
+- PASS: `npm run build`, `npm test` (31 passed, zero failures/skips), and `git diff --check`. The existing approximately 508 kB scene chunk warning remains.
+- PASS: malformed non-string agent IDs, including two distinct arrays containing the same valid ID, are rejected before regex coercion; duplicate primitive string IDs remain rejected. Closed agents configured at station 3 move to Archive without a matching Mini Ops row, with invalid or failing Mini Ops data, and after a Mini Ops station override. Mini Ops-resolved closed state is also covered.
+- PASS: fixture-backed built preview HTTP/WebSocket and exact health proof, bounded subprocesses, transport isolation and existing visual/geometry/static checks remain passing.
+- PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. NOT RUN: browser assertions retain the documented macOS startup denial; discovery is not execution. Real CLI/auth/Mini Ops schema, private access/TLS/proxy policy, optional Docker, browser/phone and deployment qualification remain operator-only and pending. No security controls were changed.
+- Usage: `npm run build && npm test`, then `AGENT_ISLAND_FEED_CONFIG="$PWD/tests/fixtures/demo-feed.json" npm run preview` for a synthetic feed. String ID validation and post-resolution Archive placement are documented in [collector-feed.md](collector-feed.md).

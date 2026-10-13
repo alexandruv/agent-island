@@ -9,7 +9,7 @@ import {WebSocket} from 'ws';
 import {Collector,commands,validateConfig,boundedFile,MAX_BYTES,runCommand,commandFailure,type CollectorConfig} from '../server/collector';
 import {FeedStore,attachFeed,sanitizeFeed,healthJSON,validateFeedConfig} from '../server/feed';
 const now=Date.parse('2026-10-13T15:00:00Z');
-const config:CollectorConfig={repo:'alexandruv/agent-island',allowedRepos:['alexandruv/agent-island'],cwd:'/synthetic/project',agents:[{id:'builder',name:'Builder',station:3},{id:'idle',name:'Scout',station:2},{id:'error',name:'Fixer',station:5},{id:'closed',name:'Retired',station:'archive'}]};
+const config:CollectorConfig={repo:'alexandruv/agent-island',allowedRepos:['alexandruv/agent-island'],cwd:'/synthetic/project',agents:[{id:'builder',name:'Builder',station:3},{id:'idle',name:'Scout',station:2},{id:'error',name:'Fixer',station:5},{id:'closed',name:'Retired',station:3}]};
 const hostile='ghp_FAKE_TEST_SECRET /Users/fake/credentials $(touch /tmp/never) <script>secret</script>';
 const agents=[{id:'builder',status:'running',name:hostile,cwd:hostile},{id:'idle',status:'idle'},{id:'error',status:'error'},{id:'closed',status:'archived'},{id:'other-project',status:'running',name:hostile}];
 const issues=[{number:10,labels:[{name:'agent:working'},{name:hostile},{name:'merged'}],closedAt:null,title:hostile,body:hostile}];
@@ -160,4 +160,24 @@ test('real subprocess fixtures enforce output and timeout bounds without leaking
    assert.throws(()=>process.kill(pid,0),(e:any)=>e.code==='ESRCH');
    assert.equal((await c.collect()).sources.paseo,'ok');assert.equal(calls,2);
   }finally{await rm(dir,{recursive:true});}
+ });
+
+ test('sanitized agent IDs require strings and reject distinct duplicate arrays',async()=>{
+  const live=await collector().collect();const agent=live.agents[0];
+  for(const id of [[agent.id],[],{},null,42,true]) {
+   assert.throws(()=>sanitizeFeed({...live,agents:[{...agent,id}]},now),/Invalid agent/);
+  }
+  const first=[agent.id],second=[agent.id];assert.notEqual(first,second);
+  assert.throws(()=>sanitizeFeed({...live,agents:[{...agent,id:first},{...agent,id:second}]},now),/Invalid agent/);
+  assert.throws(()=>sanitizeFeed({...live,agents:[agent,{...agent}]},now),/Duplicate ID/);
+  assert.equal(typeof sanitizeFeed(live,now).agents[0].id,'string');
+ });
+ test('closed agents move from active stations to Archive after all state resolution',async()=>{
+  const project=(rows?:unknown)=>({projects:{[config.repo]:{heartbeatAt:new Date(now).toISOString(),...(rows===undefined?{}:{agents:rows})}}});
+  for(const read of [async()=>project(),async()=>project([]),async()=>project([{id:'closed',station:5}]),async()=>({invalid:true}),async()=>{throw Error('fixture failure');}]) {
+   const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'closed',status:'archived'}],read,()=>now);
+   const feed=await c.collect();assert.equal(feed.agents[0].state,'closed');assert.equal(feed.agents[0].station,'archive');
+  }
+  const c=new Collector(config,async(binary,args)=>binary==='gh'?[]:args[0]==='permit'?[]:[{id:'builder',status:'running'}],async()=>project([{id:'builder',state:'closed',station:4}]),()=>now);
+  assert.equal((await c.collect()).agents[0].station,'archive');
  });

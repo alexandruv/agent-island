@@ -20,7 +20,7 @@ export function sanitizeFeed(v:unknown, now=Date.now()):Feed {
  })) as Feed['sources'];
  const feed:Feed={...emptyFeed(),capturedAt:date(s.capturedAt)!,heartbeatAt:date(s.heartbeatAt),sources,
   agents:s.agents.map((a,n)=>{
-   if(!/^agent-[a-f0-9]{32}$/.test(a.id) || !agentStates.has(a.state)||![1,2,3,4,5,6,7,'archive'].includes(a.station)) throw Error('Invalid agent');
+   if(typeof a.id!=='string' || !/^agent-[a-f0-9]{32}$/.test(a.id) || !agentStates.has(a.state)||![1,2,3,4,5,6,7,'archive'].includes(a.station)) throw Error('Invalid agent');
    return {id:a.id,name:`Agent ${n+1}`,station:a.station,state:a.state,contextPercent:typeof a.contextPercent==='number'&&Number.isFinite(a.contextPercent)&&a.contextPercent>=0&&a.contextPercent<=100?a.contextPercent:null,latestLog:null};
   }),issues:s.issues.map(i=>{
    if(!Number.isSafeInteger(i.number)||i.number<1||!Array.isArray(i.labels)) throw Error('Invalid issue');
