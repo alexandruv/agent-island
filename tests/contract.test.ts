@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import {demo,offlineDemo} from '../src/fixture';
 import {issueStation,issueState,contextText,statusText,safePreviewUrl} from '../src/contract';
 const base=demo.issues[0];
+test('conflicting labels keep placement, state and details consistent',async()=>{
+ const {issueDetails}=await import('../src/contract');
+ for(const labels of [['agent:reworking','agent:ready-for-human'],['agent:ready-for-human','agent:reworking']]) {
+  const issue={...base,labels};
+  assert.equal(issueStation(issue,null),5);
+  assert.equal(issueState(issue,null),'↺ Reworking');
+  assert.ok(issueDetails(issue,null).includes('↺ Reworking'));
+  assert.doesNotMatch(issueDetails(issue,null).join('\n'),/Ready for human/);
+ }
+ assert.equal(issueState({...base,labels:['agent:needs-human','agent:reworking','agent:ready-for-human']},null),'☁ Needs you');
+});
 test('label mapping and authorized pending claim',()=>{
  for(const [label,station] of [['agent:queued',2],['agent:working',3],['agent:under-review',4],['agent:reworking',5],['agent:ready-for-human',6],['agent:needs-human',5]] as const)assert.equal(issueStation({...base,labels:[label]},null),station);
  assert.equal(issueStation({...base,authorizedPendingClaim:true},null),2);

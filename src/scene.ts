@@ -1,5 +1,6 @@
 import * as T from 'three';
-import { stations, symbols, contextText, issueStation, actualPreviewUrl, type Snapshot } from './contract';
+import { stations, symbols, contextText, type Snapshot } from './contract';
+import { createBackdrop, createIssueCrates, stationPoints } from './scene-layout';
 export function drawIsland(host: Element, snapshot:()=>Snapshot){
  const renderer=new T.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.append(renderer.domElement);
  const scene=new T.Scene();const camera=new T.OrthographicCamera(-12,12,12,-12,.1,100);camera.position.set(16,19,24);camera.lookAt(0,0,0);
@@ -7,14 +8,14 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot){
  const material=(color:number)=>new T.MeshStandardMaterial({color,flatShading:true,roughness:.88});
  function mesh(g:T.BufferGeometry,c:number,x:number,y:number,z:number){const m=new T.Mesh(g,material(c));m.position.set(x,y,z);scene.add(m);return m;}
  const island=mesh(new T.CylinderGeometry(8.5,5.2,3.5,11,1),0x3d5141,0,-2,0);island.rotation.y=.16;
- mesh(new T.IcosahedronGeometry(4,0),0x344341,-1,1,-4).scale.set(1,1.3,.7);
+ scene.add(createBackdrop());
  mesh(new T.CircleGeometry(45,48),0x132d46,0,-5,0).rotation.x=-Math.PI/2;
  for(let n=0;n<20;n++){const a=n*2.4;mesh(new T.IcosahedronGeometry(.8,0),0x38465b,Math.cos(a)*7,-2.5,Math.sin(a)*7);}
- const points=[[-6,3],[-5,-1],[-2,-3],[2,-3],[5,-.5],[4,4],[0,6]].map(([x,z])=>new T.Vector3(x,.05,z));
+ const points=stationPoints;
  const road=new T.CatmullRomCurve3([...points,points[0]],true);mesh(new T.TubeGeometry(road,100,.35,6,true),0x9b8a70,0,0,0);
  for(let n=0;n<65;n++){const p=road.getPoint(n/65);mesh(new T.SphereGeometry(.07,6,4),0xffd990,p.x,p.y+.32,p.z);}
  function sign(text:string,x:number,y:number,z:number){const canvas=document.createElement('canvas');canvas.width=512;canvas.height=96;const c=canvas.getContext('2d')!;c.fillStyle='#101e32';c.fillRect(0,0,512,96);c.strokeStyle='#97b4d3';c.strokeRect(2,2,508,92);c.fillStyle='#f1f5ff';c.font='bold 32px sans-serif';const measured=c.measureText(text).width;if(measured>480)c.font=`bold ${Math.max(14,32*480/measured)}px sans-serif`;c.textAlign='center';c.fillText(text,256,60);const sprite=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(canvas)}));sprite.position.set(x,y,z);sprite.scale.set(3.4,.65,1);scene.add(sprite);}
- const robots:T.Group[]=[];const crates: T.Mesh[]=[];
+ const robots:T.Group[]=[];
  stations.forEach(([n,title],i)=>{const p=points[i];mesh(new T.BoxGeometry(1.5,1.3,1.3),i===6?0x88715a:0x657083,p.x,.8,p.z-.8);const roof=mesh(new T.ConeGeometry(1.2,.8,4),0x24394c,p.x,1.85,p.z-.8);roof.rotation.y=Math.PI/4;
  if(i===3)mesh(new T.BoxGeometry(.8,1.7,.8),0x617891,p.x,2,p.z-.8);
  mesh(new T.BoxGeometry(.5,.5,.04),0xffce78,p.x,1,p.z-.13);sign(`${n} ${title}`,p.x,3.3,p.z);
@@ -22,7 +23,6 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot){
  const part=(g:T.BufferGeometry,c:number,x:number,y:number,z:number)=>{const m=new T.Mesh(g,material(c));m.position.set(x,y,z);robot.add(m);};
  part(new T.BoxGeometry(.45,.6,.35),0xa7c4d3,0,.1,0);part(new T.SphereGeometry(.37,8,6),0xb2ccda,0,.7,0);part(new T.BoxGeometry(.42,.18,.1),0x12253a,0,.72,.3);for(const x of [-.13,.13])part(new T.SphereGeometry(.045,6,4),0x79eaff,x,.72,.36);
  part(new T.BoxGeometry(.18,.3,.24),0x4e6276,-.18,-.3,0);part(new T.BoxGeometry(.18,.3,.24),0x4e6276,.18,-.3,0);
- const crate=mesh(new T.BoxGeometry(.5,.5,.5),0xb78c55,p.x-.8,.4,p.z+.5);crates.push(crate);crate.visible=snapshot().issues.some(issue=>issueStation(issue,actualPreviewUrl(snapshot()))===n);
  const a=snapshot().agents.find(a=>a.station===n)!;
  mesh(new T.BoxGeometry(.9,.07,.08),0x26364e,p.x+.8,1.7,p.z+.5);
  if(contextText(a.contextPercent)!=='Context unknown'){const ratio=a.contextPercent!/100;mesh(new T.BoxGeometry(.9*ratio,.07,.09),0x80cfa6,p.x+.8-.45*(1-ratio),1.7,p.z+.5);}
@@ -34,7 +34,8 @@ export function drawIsland(host: Element, snapshot:()=>Snapshot){
  if(a.state==='needs-human')for(let k=0;k<3;k++)mesh(new T.IcosahedronGeometry(.2+k*.1,0),0xb84b60,p.x+.8,1.8+k*.4,p.z+.5);
  if(i===1){const radar=mesh(new T.ConeGeometry(.6,.2,12),0x76ae8f,p.x+1,1.9,p.z-1);radar.rotation.z=.8;}
  });
- const ray=new T.Raycaster();renderer.domElement.addEventListener('click',e=>{const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);const hits=ray.intersectObjects(scene.children,true);if(!hits.length)return;const hit=hits[0].object;if(hit.userData.entityId)document.getElementById(hit.userData.entityId)?.click();const idx=robots.findIndex(r=>r===hit||r.children.includes(hit));if(idx>=0)document.getElementById(snapshot().agents.find(a=>a.station===idx+1)!.id)?.click();const ci=crates.indexOf(hit as T.Mesh);if(ci>=0){const issue=snapshot().issues.find(issue=>issueStation(issue,actualPreviewUrl(snapshot()))===ci+1);if(issue)document.getElementById(issue.id)?.click();}});
+ for(const crate of createIssueCrates(snapshot()))scene.add(crate);
+ const ray=new T.Raycaster();renderer.domElement.addEventListener('click',e=>{const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);const hits=ray.intersectObjects(scene.children,true);if(!hits.length)return;const hit=hits[0].object;if(hit.userData.entityId)document.getElementById(hit.userData.entityId)?.click();const idx=robots.findIndex(r=>r===hit||r.children.includes(hit));if(idx>=0)document.getElementById(snapshot().agents.find(a=>a.station===idx+1)!.id)?.click();});
  mesh(new T.BoxGeometry(2.8,.18,2),0x846b50,-6,-.05,4);
  for(const x of [-6.9,-5.1])mesh(new T.CylinderGeometry(.12,.12,2,6),0x665240,x,-.8,4.7);
  for(const x of [3.3,4.7])mesh(new T.BoxGeometry(.18,1.6,.25),0xc3b17a,x,.8,4.5);

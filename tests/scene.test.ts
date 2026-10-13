@@ -1,0 +1,44 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import * as T from 'three';
+import {createBackdrop,createIssueCrates,stationPoints} from '../src/scene-layout';
+import {demo} from '../src/fixture';
+
+const camera=new T.OrthographicCamera(-12,12,12,-12,.1,100);
+camera.position.set(16,19,24);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+function pick(target: T.Vector3, objects: T.Object3D[]) {
+ objects.forEach(o=>o.updateMatrixWorld(true));
+ const projected=target.clone().project(camera);
+ const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(projected.x,projected.y),camera);
+ return ray.intersectObjects(objects,true)[0]?.object;
+}
+test('rear backdrop leaves Build workshop, Builder and sign unobstructed',()=>{
+ const peak=createBackdrop();peak.updateMatrixWorld();
+ const bounds=new T.Box3().setFromObject(peak);
+ const p=stationPoints[2];
+ for(const [size,position] of [
+  [new T.Vector3(1.5,1.3,1.3),new T.Vector3(p.x,.8,p.z-.8)],
+  [new T.Vector3(.75,1.3,.75),new T.Vector3(p.x+.8,.9,p.z+.5)],
+  [new T.Vector3(3.4,.65,.01),new T.Vector3(p.x,3.3,p.z)],
+ ] as const) {
+  const target=new T.Mesh(new T.BoxGeometry(size.x,size.y,size.z));target.position.copy(position);
+  target.updateMatrixWorld();
+  assert.equal(bounds.intersectsBox(new T.Box3().setFromObject(target)),false);
+  assert.equal(pick(position,[peak,target]),target);
+ }
+});
+test('each issue has its own named crate and stable-ID picking, including both Rework issues',()=>{
+ const crates=createIssueCrates(demo);
+ assert.equal(crates.length,demo.issues.length);
+ assert.deepEqual(crates.map(c=>c.userData.entityId),demo.issues.map(i=>i.id));
+ assert.equal(new Set(crates.map(c=>c.position.toArray().join(','))).size,crates.length);
+ for(const number of [105,107]) {
+  const issue=demo.issues.find(i=>i.number===number)!;
+  const crate=crates.find(c=>c.userData.entityId===issue.id)!;
+  assert.ok(crate.name.includes(`#${number}`));
+  assert.equal(pick(crate.position,[createBackdrop(),...crates])?.userData.entityId,issue.id);
+ }
+ const archived=createIssueCrates({...demo,issues:[{...demo.issues[0],closedAt:'2026-10-13'}]});
+ assert.equal(archived[0].userData.entityId,demo.issues[0].id);
+ assert.equal(archived[0].position.x,-9.8);
+});

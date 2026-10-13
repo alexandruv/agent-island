@@ -41,7 +41,7 @@ export function issueState(i: Issue, url: string | null): string {
   if (i.mergedAt) return issueStation(i, url) === 7 ? '↗ Preview available' : '✓ Merged';
   if (i.closedAt) return '◇ Closed';
   if (i.labels.includes('agent:needs-human')) return '☁ Needs you';
-  if (i.labels.includes('agent:ready-for-human')) return '! Ready for human · merge unconfirmed';
+  if (issueStation(i, url) === 6) return '! Ready for human · merge unconfirmed';
   return ({1:'↓ Intake',2:'▣ Queued',3:'⚒ Working',4:'◎ Under review',5:'↺ Reworking'} as Record<string,string>)[issueStation(i,url)] ?? '? Unknown';
 }
 export const symbols: Record<AgentState, string> = { working:'⚒',idle:'zzz', 'waiting-permit':'!',failed:'×',stuck:'×', 'needs-human':'☁ Needs you',closed:'◇',unknown:'?' };

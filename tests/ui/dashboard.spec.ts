@@ -1,4 +1,7 @@
 import {test,expect} from '@playwright/test';
+import * as T from 'three';
+import {createIssueCrates} from '../../src/scene-layout';
+import {demo} from '../../src/fixture';
 test('360px lanes, keyboard details, offline and unknown',async({page})=>{
  await page.setViewportSize({width:360,height:800});await page.goto('/');
  await expect(page.locator('canvas')).toHaveCount(0);
@@ -14,6 +17,17 @@ test('360px lanes, keyboard details, offline and unknown',async({page})=>{
 });
 test('desktop and unavailable WebGL fallback',async({page})=>{
  await page.setViewportSize({width:1280,height:900});await page.goto('/');await expect(page.locator('canvas')).toBeVisible();
+ const canvas=page.locator('canvas');const rect=(await canvas.boundingBox())!;
+ const camera=new T.OrthographicCamera(-12*rect.width/rect.height,12*rect.width/rect.height,12,-12,.1,100);
+ camera.position.set(16,19,24);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+ const targets=[{id:'demo-robot-3',position:new T.Vector3(-1.2,1.3,-2.5)},
+  ...createIssueCrates(demo).filter(c=>['demo-crate-5','demo-crate-7'].includes(c.userData.entityId)).map(c=>({id:c.userData.entityId,position:c.position}))];
+ for(const target of targets){
+  const p=target.position.clone().project(camera);
+  await canvas.click({position:{x:(p.x+1)*rect.width/2,y:(1-p.y)*rect.height/2}});
+  await expect(page.getByRole('dialog')).toContainText(`Stable ID: ${target.id}`);
+  await page.keyboard.press('Escape');
+ }
  await page.screenshot({path:'docs/validation/desktop.png',fullPage:true});
  await page.addInitScript(()=>{HTMLCanvasElement.prototype.getContext=()=>null;});await page.reload();await expect(page.locator('#app')).toHaveClass(/lane-only/);await expect(page.locator('#demo-robot-1')).toBeVisible();
 });
