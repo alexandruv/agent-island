@@ -92,3 +92,74 @@ No preview was deployed, and production is untouched.
 - PASS: realistic Paseo `closed` fixtures reach Archive without a matching Mini Ops row, with missing/invalid data, unavailable data, source errors and station overrides. Unsupported `archived`, `initializing` and other unknown statuses remain unknown. Existing source failure, isolation and transport tests remain passing without secrets or live services.
 - PASS: `npm run test:ui -- --list` discovers four opt-in browser tests. Browser assertions were NOT RUN; the documented host launch denial remains. Real CLI/auth/Mini Ops qualification, private access/TLS/proxy checks, browser/phone, optional Docker and deployment validation remain operator-only and pending.
 - Usage: `npm ci && npm run build && npm test`; use a writable npm cache if the host default is restricted. Synthetic preview instructions and lifecycle mapping are in [collector-feed.md](collector-feed.md). No new configuration is required for closed agents.
+
+## Issue #8 full viewport island
+
+2026-10-13, assigned `agent/issue-8` worktree only.
+
+- PASS: `npm ci --cache /private/tmp/agent-island-issue-8-npm-cache`, `npm run build`, and `npm test`: 15 Node tests passed, zero failures or skips. npm install-script controls were unchanged. Vite retains its approximately 510 kB lazy scene chunk warning.
+- PASS: CPU regressions check all eleven station/support signs for visibility, bounds and mutual clearance across widths 390–1440px, fixed 16px text, geometry framing, selection and an island projected footprint of at least 60% of canvas width at the three acceptance sizes. Robot/log sprites are hidden; hover information is confined to the header, outside station signs. CPU tests do not establish rendered visual quality.
+- HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` built and served `dist` and explicitly reported six skipped browser tests, zero browser passes. This uses the existing documented macOS Chromium bootstrap denial in [browser-host-block.log](browser-host-block.log); no denied launch was retried and no security controls were changed.
+- PENDING OPERATOR VALIDATION: run `npm run test:ui` without the host-block variable on an authorized browser host. The six tests cover 1280×800, 1440×900 and 390×844 full viewport rendering, nonintersecting sign rectangles, hidden default lanes, slide-over/keyboard details, entity picking, WebGL failure/context loss and static reduced motion. They save `test-results/island-1280.png`, `island-1440.png`, `island-390.png` and attach them to Playwright results. No screenshots were produced on this restricted host; attaching those rendered screenshots to the PR and comparison against the reference remain pending before deployment.
+- Usage: island rendering is the default on phones and desktops. “Lane view” opens the lane slide-over while keeping the island; clicking a robot or issue crate opens its details and lanes. Reduced motion stops animation instead of invoking fallback. Only unavailable WebGL or context loss invokes lane-only fallback. The site remains synthetic, read-only, and the Production bridge remains permanently locked.
+
+## PR #9 authenticated review rework
+
+2026-10-13, existing `agent/issue-8` worktree only.
+
+- Fixed the unplaced-sign path: placement is computed for every station before applying offsets. If nearby rows cannot hold every sign, all eleven signs are repacked into deterministic shelves. A canvas shorter than those fixed-font shelves is fitted to their minimum height and scrolls vertically. No station sign is hidden or rendered at an unplaced anchor. Resizing starts from original anchors each time.
+- PASS: `npm run build` and `npm test`: 16 Node tests, zero failures or skips. The new regression checks all sign bounds and pairwise clearance at short desktop/phone sizes, repeated resizing, and a 40px scene height. The existing approximately 511 kB scene chunk warning remains.
+- Added Playwright coverage of actual HTML rectangles through 1280×300, 390×360, 600×320, 1440×260 and restored acceptance sizes. It verifies all eleven signs stay within the viewport without overlap and lanes remain hidden.
+- HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` rebuilt and served `dist`, discovered seven tests and explicitly skipped all seven. Zero browser assertions passed and no screenshots were generated. The documented macOS bootstrap denial in [browser-host-block.log](browser-host-block.log) remains applicable; no denied launch was retried and no security controls changed.
+- REVIEW FINDING STILL PENDING: this invocation has no permitted Chromium host. An authorized operator must run `npm run test:ui` without the skip variable and attach `test-results/island-1280.png`, `test-results/island-1440.png`, and `test-results/island-390.png` to existing PR #9. Playwright result attachments alone are not PR attachments. Browser acceptance, screenshot/reference review and independent operator validation remain pending before deployment.
+- Usage: normal windows retain signs near their landmarks. Short windows use compact rows; extremely short windows allow vertical island scrolling. “Lane view”, entity details, read-only behavior and the locked Production bridge are unchanged.
+
+## PR #9 height-only resize review rework
+
+2026-10-13, existing `agent/issue-8` worktree only.
+
+- Observe the parent viewport container instead of the explicitly sized scene host. Height-only window growth and shrinkage now trigger camera fitting, canvas sizing and sign placement independently of the previous canvas height.
+- Added a browser regression at fixed width 1280px through heights 300 → 800 → 300 → 900 → 260 → 800. It waits for exact canvas dimensions (window height minus the 72px header), then checks all eleven rendered signs for bounds and pairwise nonintersection and verifies lanes stay hidden.
+- PASS: `npm run build` and `npm test`: all 16 Node tests passed, zero failures or skips. The approximately 511 kB scene chunk warning remains.
+- HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` rebuilt and served this candidate and reported eight skipped browser tests, zero executed browser assertions, zero browser passes, and no screenshots. The previously documented macOS Chromium bootstrap denial in [browser-host-block.log](browser-host-block.log) remains applicable; no denied launch was retried or security controls changed.
+- PENDING: the rendered acceptance finding is still unresolved. On a permitted Chromium host, run `npm run test:ui` without the host-block variable against this candidate and attach `test-results/island-1280.png`, `test-results/island-1440.png`, and `test-results/island-390.png` to existing PR #9. Browser acceptance, reference comparison and independent operator validation remain required before deployment. Skipped tests and CPU projection checks are not rendered acceptance evidence.
+- Usage: resizing only the window height now refits the island as well as resizing its width. Short-window compact rows and minimum-height scrolling retain readable signs; Lane view and read-only behavior are unchanged.
+
+## PR #9 rendered acceptance review follow-up
+
+2026-10-13, existing `agent/issue-8` worktree, reviewed implementation head `61ebe5b8ff8cb1d4b761b50b6eaf38c7ba4381b1`.
+
+- PASS: reran `npm run build` and `npm test`: 16 Node tests passed, zero failures and zero skips. The approximately 511 kB scene chunk warning remains.
+- HOST-ONLY SKIP: `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` rebuilt and served `dist`, then reported eight skipped tests, zero browser passes and no screenshots. The documented Chromium bootstrap permission denial still applies on this restricted host; no denied launch was retried or security control changed.
+- The structured finding requests rendered evidence, not another CPU regression. Existing browser tests already cover all three acceptance viewports, screenshot artifacts and rendered sign rectangles. No additional implementation or redundant test was added for this finding.
+- Added explicit README instructions to associate an authorized rendered run with the current PR head, require eight passes with zero skips, compare screenshots against the reference and upload all three PNGs to existing PR #9. Local Playwright attachments do not satisfy PR attachment requirements.
+- UNRESOLVED: no permitted Chromium execution host is available in this invocation. No rendered screenshots, reference comparison or screenshot attachments can be claimed. The finding and operator-only validation remain pending before deployment.
+
+## Issue #11 rendered acceptance evidence
+
+2026-10-13, assigned `agent/issue-11` worktree, fast-forwarded to PR #9 head `a14e92726290ca69fe1ec8c4d9581d1b76e74852`. All PR #9 island code and tests are retained unchanged. This documentation follow-up supersedes the historical pending rendered-run statements above.
+
+- REPORTED PASS (operator evidence supplied in issue #11): Mini Ops ran `npm run test:ui` on an unsandboxed host against tested SHA `a14e92726290ca69fe1ec8c4d9581d1b76e74852`, without `ISLAND_BROWSER_HOST_BLOCKED`: **8 passed / 0 skipped / 0 failed**. This is the operator's rendered run, not a browser pass performed by this developer.
+- Historical PR #9 screenshot attachments (superseded by the committed evidence below): [screenshot attachment comment 1](https://github.com/alexandruv/agent-island/pull/9#issuecomment-6147332433), [screenshot attachment comment 2](https://github.com/alexandruv/agent-island/pull/9#issuecomment-6147336897). Together these contain `island-1280.png`, `island-1440.png`, and `island-390.png`. These are the supplied attachment comment links; retain them with the tested SHA in the candidate PR.
+- PASS (local clean install): `npm ci --cache /private/tmp/agent-island-issue-11-npm-cache`, `npm run build`, and `npm test`: 16 Node tests passed, zero failures and zero skips. No secrets or live services were used. npm reported zero audit vulnerabilities and two install scripts outside the host allowScripts policy; that policy was left unchanged. Vite retains the approximately 511 kB lazy scene chunk warning.
+- HOST-ONLY SKIP (local): `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui` builds and serves `dist`, with **0 passed / 8 skipped / 0 failed**. No local browser assertions or screenshots are claimed. The documented `MachPortRendezvousServer` / permission denial 1100 in [browser-host-block.log](browser-host-block.log) remains applicable; no denied launch was retried or security controls changed.
+- PENDING INDEPENDENT REVIEW: compare all three in-repo screenshots listed under issue #14 against `/Users/dev/agent-worktrees/agent-island-operator/agent-island-reference.jpg` and issue #8: full-viewport canvas, no fallback text, lane grid hidden by default, non-overlapping station labels, and fitted island at 390px. The supplied browser pass does not itself establish that independent visual comparison. The orchestrator's separate reviewer performs it; operator-only validation remains required before deployment.
+- Usage: `npm ci && npm run build && npm test`, then `npm run dev` or `npm run preview`. On an authorized Chromium host, run `npm run test:ui` with the host-block variable unset. Existing tests capture all three acceptance screenshots. No rendering code changed for #11; the reported rendered evidence applies to the unchanged PR #9 implementation.
+
+## Issue #14 reviewer-readable screenshots
+
+2026-10-13, assigned `agent/issue-14` worktree, fast-forwarded to the required PR #13 head `78fdaf217f9488924a08b9a95fd87b9fb6fc0400`. Rendering code remains unchanged from tested SHA `a14e92726290ca69fe1ec8c4d9581d1b76e74852`.
+
+- REPORTED PASS (Mini Ops evidence supplied in issue #14): unsandboxed `npm run test:ui` against that tested SHA: **8 passed / 0 skipped / 0 failed**. This is the operator's run, not this developer's local browser execution.
+- PASS: copied the three operator PNGs unchanged into the repository and verified each SHA-256 against issue #14. These checkout-readable files supersede reliance on PR #9 comment attachments:
+
+| Screenshot | SHA-256 |
+| --- | --- |
+| [island-1280.png](acceptance/a14e927/island-1280.png) | `13e1a96f5fd94f426f8d4b11c6f57627887d3fd6642997808a93426afe98313e` |
+| [island-1440.png](acceptance/a14e927/island-1440.png) | `681f4442e908ea81eb95e9584fbb001c70e0f546ee19fd44ec1d29348716063e` |
+| [island-390.png](acceptance/a14e927/island-390.png) | `a3b6c2827c05ea7ce2c4d2ca0ee290ba1693bf1e700716da1fff9cda1194ced0` |
+
+- PASS: fresh `npm ci --cache /private/tmp/agent-island-issue-14-npm-cache`, `npm run build`, and `npm test`: **17 passed / 0 skipped / 0 failed**, including a new checksum regression for the committed evidence. No secrets or live services were used. npm reported zero vulnerabilities and two scripts outside the host allowScripts policy, which remains unchanged. The existing approximately 511 kB Vite scene chunk warning remains.
+- HOST-ONLY SKIP (local): `ISLAND_BROWSER_HOST_BLOCKED=1 npm run test:ui`: **0 passed / 8 skipped / 0 failed**. No Chromium launch was attempted; the documented permission denial remains applicable. No local rendered pass is claimed and no security controls changed.
+- PENDING INDEPENDENT REVIEW: the orchestrator's separate read-only reviewer must open these in-repo screenshots and compare them with `/Users/dev/agent-worktrees/agent-island-operator/agent-island-reference.jpg` and issue #8: full-viewport canvas, no fallback text, lane grid hidden by default, non-overlapping station labels, and phone fit at 390px. Committing verified evidence does not claim that review has passed. Operator-only validation remains pending before deployment.
+- Usage: open the PNG links above from the checkout, then run `shasum -a 256 docs/acceptance/a14e927/*.png` to authenticate the files. `npm ci && npm run build && npm test` validates the app and evidence without a browser; `npm run dev` or `npm run preview` serves the app locally.

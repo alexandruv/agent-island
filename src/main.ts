@@ -4,12 +4,12 @@ import { stations, agentDetails, issueDetails, issueStation, issueState, context
 import './style.css';
 let snapshot: Snapshot = demo;
 const root=document.querySelector<HTMLDivElement>('#app')!;
-root.innerHTML=`<header><div><span class="eyebrow">READ-ONLY · DEMO · SYNTHETIC FIXTURES</span><h1>◈ Agent Island</h1><p>A little island. A clear view of the work.</p></div><div class="controls"><label>Fixture <select id="fixture"><option value="online">Online demo</option><option value="offline">Mac offline demo</option></select></label><button id="view">Use lane view</button></div></header><p id="status" role="status"></p><main><section class="world" aria-label="Isometric island"><div id="scene"></div><div class="world-caption">SEVEN STATIONS · ONE READ-ONLY ROAD</div><div class="bridge">🔒 Production city · bridge permanently locked</div></section><section class="lanes" aria-label="Station lanes"></section></main><footer>↺ Rework: Review → Build <span>┄ Changes: Preview → Intake</span><p>No production controls. No actions. Demo data only.</p></footer><dialog aria-labelledby="detail-title"><button id="close">Close details</button><h2 id="detail-title"></h2><div id="detail-body"></div></dialog>`;
+root.innerHTML=`<header><div><span class="eyebrow">READ-ONLY · DEMO · SYNTHETIC FIXTURES</span><h1>◈ Agent Island</h1></div><div class="controls"><label>Fixture <select id="fixture"><option value="online">Online demo</option><option value="offline">Mac offline demo</option></select></label><button id="view" aria-expanded="false">Lane view</button></div></header><p id="status" role="status"></p><main><section class="world" aria-label="Isometric island"><div id="scene"></div></section><aside class="lane-panel" aria-label="Lane details"><section class="lanes" aria-label="Station lanes"></section></aside></main><footer>↺ Rework: Review → Build <span>┄ Changes: Preview → Intake</span><p>No production controls. No actions. Demo data only.</p></footer><dialog aria-labelledby="detail-title"><button id="close">Close details</button><h2 id="detail-title"></h2><div id="detail-body"></div></dialog>`;
 const dialog=root.querySelector('dialog')!;
 let opener: HTMLElement | null=null;
 document.addEventListener('keydown', e => { if(e.key === 'Escape' && dialog.open) dialog.close(); });
 function paragraph(text:string){const p=document.createElement('p');p.textContent=text;return p;}
-function details(title:string, lines:string[], button:HTMLElement){opener=button;root.querySelector('#detail-title')!.textContent=title;root.querySelector('#detail-body')!.replaceChildren(...lines.map(paragraph));dialog.showModal();}
+function details(title:string, lines:string[], button:HTMLElement){opener=button;view.openDetails();root.querySelector('#detail-title')!.textContent=title;root.querySelector('#detail-body')!.replaceChildren(...lines.map(paragraph));dialog.showModal();}
 root.querySelector('#close')!.addEventListener('click',()=>dialog.close());
 dialog.addEventListener('close',()=>opener?.focus());
 function render(){
@@ -40,7 +40,6 @@ function render(){
 render();
 root.querySelector('#fixture')!.addEventListener('change',e=>{snapshot=(e.target as HTMLSelectElement).value==='offline'?offlineDemo():demo;render();});
 const view=bindViewControl(root,root.querySelector<HTMLButtonElement>('#view')!);
-if(matchMedia('(min-width: 1301px)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches){
- import('./scene').then(({drawIsland})=>{view.setAvailable(true);drawIsland(root.querySelector('#scene')!,()=>snapshot,fallback);}).catch(()=>fallback());
-}else fallback();
+ import('./scene').then(({drawIsland})=>{drawIsland(root.querySelector('#scene')!,()=>snapshot,fallback);view.setAvailable(true);}).catch(()=>fallback());
+
 function fallback(){view.setAvailable(false);root.querySelector('#scene')!.textContent='Island rendering unavailable. All stations and details are available in the lanes.';}
